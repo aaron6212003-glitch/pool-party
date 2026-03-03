@@ -5,11 +5,63 @@ import { Card, Button, Modal, Badge, cn } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram } from 'lucide-react'
+import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
 import SportsbookTab from '@/components/SportsbookTab'
 import { motion, AnimatePresence } from 'framer-motion'
+
+// ─── Achievements Definition ──────────────────────────────────────────────────
+const ACHIEVEMENTS = [
+    {
+        id: 'whale_hunter',
+        label: 'Whale Hunter',
+        description: 'Logged a single shift with $500+ in net sales.',
+        icon: '🏹',
+        requirement: 'Sales > $500',
+        color: 'from-blue-500 to-cyan-400'
+    },
+    {
+        id: 'tip_king',
+        label: 'Tip Monarch',
+        description: 'Hit a 25% tip average on a single shift.',
+        icon: '👑',
+        requirement: 'Tips > 25%',
+        color: 'from-yellow-400 to-amber-600'
+    },
+    {
+        id: 'on_fire',
+        label: 'On Fire',
+        description: 'Logged 3+ shifts in a single week.',
+        icon: '🔥',
+        requirement: '3+ Shifts/Week',
+        color: 'from-orange-500 to-red-600'
+    },
+    {
+        id: 'night_owl',
+        label: 'Night Owl',
+        description: 'Log 5+ late-night shifts in a month.',
+        icon: '🦉',
+        requirement: '5+ Late Shifts',
+        color: 'from-indigo-600 to-purple-800'
+    },
+    {
+        id: 'consistent',
+        label: 'Consistent',
+        description: 'Logged 5 shifts in total.',
+        icon: '💎',
+        requirement: '5 Total Shifts',
+        color: 'from-emerald-400 to-teal-600'
+    },
+    {
+        id: 'clutch',
+        label: 'Clutch Player',
+        description: 'Logged a high-sales weekend shift.',
+        icon: '⚡',
+        requirement: 'Sat/Sun $400+',
+        color: 'from-pink-500 to-rose-600'
+    }
+]
 
 // ─── Leaderboard Item ────────────────────────────────────────────────────────
 function LeaderboardItem({ name, value, rank, type, avatar, isAdmin: itemIsAdmin, isPrivate, onClick }: {
@@ -98,6 +150,10 @@ export default function PartyDetails() {
     const [refreshing, setRefreshing] = useState(false)
     const [currentUserId, setCurrentUserId] = useState<string | null>(null)
     const [kickingId, setKickingId] = useState<string | null>(null)
+    const [userAchievements, setUserAchievements] = useState<string[]>([])
+    const [showPollCreator, setShowPollCreator] = useState(false)
+    const [pollQuestion, setPollQuestion] = useState('')
+    const [pollOptions, setPollOptions] = useState(['', ''])
     const [weekOffset, setWeekOffset] = useState(0)
     const [timeframe, setTimeframe] = useState<'week' | 'all-time'>('week')
     const [selectedUserIntel, setSelectedUserIntel] = useState<any>(null)
@@ -144,7 +200,7 @@ export default function PartyDetails() {
             const userIds = memberData.map((m: any) => m.user_id)
             const { data: profileData } = await supabase
                 .from('profiles')
-                .select('id, avatar_url, share_to_leaderboard, birthday, work_anniversary, bio')
+                .select('id, avatar_url, share_to_leaderboard, birthday, work_anniversary, bio, phone, instagram, favorite_section')
                 .in('id', userIds)
 
             const enrichedMembers = memberData.map((m: any) => ({
@@ -153,6 +209,16 @@ export default function PartyDetails() {
             }))
 
             setMembers(enrichedMembers)
+
+            // Fetch Achievements for current user
+            const { data: achievementData } = await supabase
+                .from('user_achievements')
+                .select('achievement_type')
+                .eq('user_id', user.id)
+                .eq('group_id', id)
+            if (achievementData) {
+                setUserAchievements(achievementData.map((a: any) => a.achievement_type))
+            }
         } else {
             setMembers([])
         }
@@ -471,10 +537,47 @@ export default function PartyDetails() {
             toast.error(error.message || "Failed to post message")
             // Revert optimistic update
             setFeedItems(prev => prev.filter(i => i.id !== tempId))
-            setChatInput(tempInput)
-        } else {
-            fetchFeed()
         }
+    }
+
+    const handlePollSubmit = async () => {
+        if (!pollQuestion.trim() || pollOptions.some(o => !o.trim())) return
+        try {
+            const { error } = await supabase.from('party_feed').insert({
+                group_id: id as string,
+                user_id: currentUserId,
+                event_type: 'poll',
+                content: `Command Poll: ${pollQuestion}`,
+                metadata: {
+                    type: 'poll',
+                    question: pollQuestion,
+                    options: pollOptions,
+                    voters: {}
+                }
+            })
+            if (error) throw error
+            setPollQuestion('')
+            setPollOptions(['', ''])
+            setShowPollCreator(false)
+        } catch (e: any) {
+            toast.error(e.message)
+        }
+    }
+
+    const handleVote = async (itemId: string, optionIndex: number) => {
+        if (!currentUserId) return
+        const item = feedItems.find(i => i.id === itemId)
+        if (!item) return
+
+        const currentVoters = item.metadata?.voters || {}
+        const newVoters = { ...currentVoters, [currentUserId]: optionIndex }
+
+        await supabase
+            .from('party_feed')
+            .update({ metadata: { ...item.metadata, voters: newVoters } })
+            .eq('id', itemId)
+
+        if (typeof window !== 'undefined' && navigator.vibrate) navigator.vibrate(10)
     }
 
     if (loading || !group) {
@@ -539,6 +642,7 @@ export default function PartyDetails() {
                 <div className="p-1.5 flex gap-1.5 bg-zinc-900/90 backdrop-blur-2xl border border-white/5 rounded-3xl shadow-2xl">
                     {[
                         { id: 'leaderboard', icon: Trophy, label: 'Stats' },
+                        { id: 'achievements', icon: Medal, label: 'Medals' },
                         { id: 'feed', icon: BarChart3, label: 'Feed' },
                         { id: 'sportsbook', icon: () => <span className="text-base leading-none mb-1">🎰</span>, label: 'Bets' },
                         { id: 'settings', icon: Settings, label: 'Manage' },
@@ -577,7 +681,75 @@ export default function PartyDetails() {
                         currentUserId={currentUserId || ''}
                         members={members}
                         isAdmin={isAdmin}
+                        onViewIntel={handleViewIntel}
                     />
+                )}
+                {activeTab === 'achievements' && (
+                    <div className="space-y-8 animate-in pb-20">
+                        <section className="space-y-4">
+                            <div className="flex justify-between items-end px-2">
+                                <div className="space-y-1">
+                                    <h2 className="text-4xl font-black font-outfit text-white tracking-tighter uppercase">Medal Rack.</h2>
+                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Service Achievements Unlocked</p>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-2xl font-black font-outfit text-white">{userAchievements.length}/{ACHIEVEMENTS.length}</p>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600">Total Medals</p>
+                                </div>
+                            </div>
+
+                            <div className="grid grid-cols-2 gap-4">
+                                {ACHIEVEMENTS.map((achievement) => {
+                                    const isUnlocked = userAchievements.includes(achievement.id)
+                                    return (
+                                        <Card
+                                            key={achievement.id}
+                                            className={cn(
+                                                "p-6 relative overflow-hidden flex flex-col items-center text-center space-y-4 transition-all duration-500 rounded-[2.5rem] border-white/5",
+                                                isUnlocked
+                                                    ? "bg-gradient-to-br from-zinc-900 to-zinc-800 ring-2 ring-primary/20 shadow-[0_20px_50px_rgba(0,122,255,0.15)]"
+                                                    : "bg-zinc-900/40 opacity-40 grayscale"
+                                            )}
+                                        >
+                                            {isUnlocked && (
+                                                <div className={cn(
+                                                    "absolute -top-10 -right-10 w-24 h-24 blur-[40px] opacity-30 bg-gradient-to-br",
+                                                    achievement.color
+                                                )} />
+                                            )}
+
+                                            <div className={cn(
+                                                "w-16 h-16 rounded-[2rem] flex items-center justify-center text-3xl shadow-2xl relative z-10",
+                                                isUnlocked ? `bg-gradient-to-br ${achievement.color} text-white` : "bg-black text-zinc-700"
+                                            )}>
+                                                {achievement.icon}
+                                                {isUnlocked && (
+                                                    <div className="absolute inset-0 rounded-[2rem] animate-pulse bg-white/10 blur-md" />
+                                                )}
+                                            </div>
+
+                                            <div className="space-y-1 relative z-10">
+                                                <h3 className="font-black font-outfit text-sm text-white tracking-tight">{achievement.label}</h3>
+                                                <p className="text-[10px] text-zinc-500 font-bold leading-tight">{achievement.description}</p>
+                                            </div>
+
+                                            <div className={cn(
+                                                "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest relative z-10",
+                                                isUnlocked ? "bg-primary/10 text-primary border border-primary/20" : "bg-black text-zinc-700 border border-white/5"
+                                            )}>
+                                                {achievement.requirement}
+                                            </div>
+                                        </Card>
+                                    )
+                                })}
+                            </div>
+                        </section>
+
+                        <div className="p-6 bg-zinc-900/40 rounded-[2.5rem] border border-dashed border-white/5 text-center space-y-2">
+                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">New missions loading soon...</p>
+                            <p className="text-[8px] font-bold text-zinc-700 px-6 italic">Achievements are tracked in real-time as you log shifts. Tap any locked medal to see intel on how to claim it.</p>
+                        </div>
+                    </div>
                 )}
 
                 {/* ── LEADERBOARD TAB ── */}
@@ -707,7 +879,7 @@ export default function PartyDetails() {
                         </div>
 
                         {/* Feed Stream */}
-                        <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 scroll-smooth">
+                        <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 scroll-smooth select-none touch-manipulation">
                             {(() => {
                                 const actualItems = []
                                 const itemReactions: Record<string, any[]> = {}
@@ -746,7 +918,7 @@ export default function PartyDetails() {
                                         <div
                                             key={item.id}
                                             className={cn(
-                                                "p-5 rounded-[2rem] relative transition-all shrink-0 group select-none [-webkit-touch-callout:none]",
+                                                "p-5 rounded-[2rem] relative transition-all shrink-0 group select-none [-webkit-touch-callout:none] tap-highlight-transparent",
                                                 isSystem
                                                     ? "bg-zinc-900 border border-primary/20 shadow-[0_4px_30px_rgba(255,255,255,0.02)]"
                                                     : "bg-zinc-900/40 border border-white/5 active:bg-white/5 transition-colors"
@@ -807,7 +979,7 @@ export default function PartyDetails() {
                                                 >
                                                     {isSystem ? (
                                                         <span className="text-xl">
-                                                            {item.metadata?.type?.includes('sales') ? '🏆' : item.metadata?.type?.includes('tips') ? '💰' : '🔥'}
+                                                            {item.metadata?.type === 'achievement_unlocked' ? '🎖️' : item.metadata?.type?.includes('sales') ? '🏆' : item.metadata?.type?.includes('tips') ? '💰' : '🔥'}
                                                         </span>
                                                     ) : item.is_anonymous ? (
                                                         <span className="text-xl opacity-80 backdrop-grayscale">👻</span>
@@ -851,7 +1023,47 @@ export default function PartyDetails() {
                                                         "font-outfit text-sm tracking-tight leading-relaxed",
                                                         isSystem ? "text-white font-bold" : "text-zinc-300"
                                                     )}>
-                                                        <span dangerouslySetInnerHTML={{ __html: item.content.replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-black">$1</span>') }} />
+                                                        {item.event_type === 'poll' ? (
+                                                            <div className="space-y-4 mt-2">
+                                                                <p className="text-white font-black text-base">{item.metadata?.question}</p>
+                                                                <div className="space-y-2">
+                                                                    {item.metadata?.options.map((opt: any, i: number) => {
+                                                                        const votes = item.metadata?.voters || {}
+                                                                        const totalVotes = Object.keys(votes).length
+                                                                        const optionVotes = Object.values(votes).filter(v => v === i).length
+                                                                        const percent = totalVotes === 0 ? 0 : Math.round((optionVotes / totalVotes) * 100)
+                                                                        const myVote = currentUserId ? votes[currentUserId] === i : false
+
+                                                                        return (
+                                                                            <button
+                                                                                key={i}
+                                                                                onClick={() => handleVote(item.id, i)}
+                                                                                disabled={!currentUserId}
+                                                                                className={cn(
+                                                                                    "w-full p-4 rounded-2xl relative overflow-hidden transition-all text-left ring-1 ring-white/5 hover:ring-white/10",
+                                                                                    myVote ? "ring-primary/50 bg-primary/20" : "bg-zinc-900/40"
+                                                                                )}
+                                                                            >
+                                                                                <div
+                                                                                    className={cn("absolute inset-y-0 left-0 bg-primary/20 transition-all duration-500", myVote ? "bg-primary/30" : "")}
+                                                                                    style={{ width: `${percent}%` }}
+                                                                                />
+                                                                                <div className="relative flex justify-between items-center gap-2">
+                                                                                    <div className="flex items-center gap-3">
+                                                                                        {myVote && <div className="w-2 h-2 rounded-full bg-primary" />}
+                                                                                        <span className={cn("text-xs font-black", myVote ? "text-primary" : "text-white")}>{opt}</span>
+                                                                                    </div>
+                                                                                    <span className="text-[10px] font-black text-zinc-600">{percent}%</span>
+                                                                                </div>
+                                                                            </button>
+                                                                        )
+                                                                    })}
+                                                                </div>
+                                                                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-700">Tapping an option logs your tactical decision</p>
+                                                            </div>
+                                                        ) : (
+                                                            <span dangerouslySetInnerHTML={{ __html: item.content.replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-black">$1</span>') }} />
+                                                        )}
                                                     </div>
                                                 </div>
                                             </div>
@@ -869,7 +1081,7 @@ export default function PartyDetails() {
                                                             whileTap={{ scale: 0.9 }}
                                                             onClick={(e) => { e.stopPropagation(); handleReaction(item.id, emoji) }}
                                                             className={cn(
-                                                                "px-2 py-0.5 rounded-full text-xs flex items-center gap-1 bg-black ring-1 transition-all",
+                                                                "px-2 py-0.5 rounded-full text-xs flex items-center gap-1 bg-black ring-1 transition-all tap-highlight-transparent touch-manipulation",
                                                                 hasReacted ? "ring-primary shadow-[0_0_10px_rgba(0,122,255,0.3)] shadow-primary/20 bg-primary/10" : "ring-white/10 text-zinc-400"
                                                             )}
                                                         >
@@ -895,7 +1107,7 @@ export default function PartyDetails() {
                                                                 key={emoji}
                                                                 whileHover={{ scale: 1.2, y: -2 }}
                                                                 whileTap={{ scale: 0.9 }}
-                                                                className="text-xl p-1.5 hover:bg-white/10 rounded-full transition-colors"
+                                                                className="text-xl p-1.5 hover:bg-white/10 rounded-full transition-colors tap-highlight-transparent"
                                                                 onClick={(e) => { e.stopPropagation(); handleReaction(item.id, emoji) }}
                                                             >
                                                                 {emoji}
@@ -936,8 +1148,73 @@ export default function PartyDetails() {
                                     </button>
                                 </div>
 
+                                <AnimatePresence>
+                                    {showPollCreator && (
+                                        <motion.div
+                                            initial={{ height: 0, opacity: 0 }}
+                                            animate={{ height: 'auto', opacity: 1 }}
+                                            exit={{ height: 0, opacity: 0 }}
+                                            className="bg-zinc-900 border border-white/10 rounded-2xl p-4 mb-2 space-y-4 shadow-3xl overflow-hidden"
+                                        >
+                                            <div className="flex justify-between items-center">
+                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary italic">Command Poll</p>
+                                                <button onClick={() => setShowPollCreator(false)} className="p-1 rounded-lg hover:bg-white/5 text-zinc-500"><X className="w-4 h-4" /></button>
+                                            </div>
+                                            <input
+                                                placeholder="Poll Question?"
+                                                value={pollQuestion}
+                                                onChange={e => setPollQuestion(e.target.value)}
+                                                className="w-full bg-black/60 border border-white/5 rounded-xl px-4 py-3 text-sm font-black text-white focus:border-primary outline-none"
+                                            />
+                                            <div className="space-y-2">
+                                                {pollOptions.map((opt, i) => (
+                                                    <div key={i} className="flex gap-2">
+                                                        <input
+                                                            placeholder={`Option ${i + 1}`}
+                                                            value={opt}
+                                                            onChange={e => {
+                                                                const newOpts = [...pollOptions]
+                                                                newOpts[i] = e.target.value
+                                                                setPollOptions(newOpts)
+                                                            }}
+                                                            className="flex-1 bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-primary/50 outline-none"
+                                                        />
+                                                        {pollOptions.length > 2 && (
+                                                            <button onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))} className="p-2 text-zinc-700 hover:text-red-400"><X className="w-4 h-4" /></button>
+                                                        )}
+                                                    </div>
+                                                ))}
+                                                {pollOptions.length < 4 && (
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => setPollOptions([...pollOptions, ''])}
+                                                        className="w-full py-2 border border-dashed border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:text-white transition-colors"
+                                                    >
+                                                        + Add Option
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <Button
+                                                type="button"
+                                                onClick={handlePollSubmit}
+                                                disabled={!pollQuestion.trim() || pollOptions.some(o => !o.trim())}
+                                                className="w-full py-3 h-auto !rounded-xl"
+                                            >
+                                                Deploy Poll
+                                            </Button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
                                 {/* Text Input */}
                                 <div className="flex items-center gap-2 bg-black py-2 px-2.5 rounded-[1.5rem] border border-white/10 shadow-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                                    <button
+                                        type="button"
+                                        onClick={() => setShowPollCreator(!showPollCreator)}
+                                        className={cn("p-2 rounded-xl transition-all", showPollCreator ? "bg-primary text-white" : "bg-white/5 text-zinc-500 hover:text-white")}
+                                    >
+                                        <Vote className="w-5 h-5" />
+                                    </button>
                                     <input
                                         type="text"
                                         value={chatInput}
@@ -1029,7 +1306,11 @@ export default function PartyDetails() {
                                     <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Member Command</p>
                                     <div className="space-y-2">
                                         {members.map((m: any) => (
-                                            <div key={m.user_id} className="flex items-center justify-between p-4 bg-black rounded-2xl border border-white/5 group/member transition-all hover:border-primary/20">
+                                            <div
+                                                key={m.user_id}
+                                                className="flex items-center justify-between p-4 bg-black rounded-2xl border border-white/5 group/member transition-all hover:border-primary/20 cursor-pointer active:bg-zinc-900 tap-highlight-transparent"
+                                                onClick={() => handleViewIntel(m.user_id, m.display_name, m.profiles?.share_to_leaderboard === false)}
+                                            >
                                                 <div className="flex items-center gap-3">
                                                     <div className="w-9 h-9 rounded-full bg-zinc-900 overflow-hidden ring-1 ring-white/10 group-hover/member:ring-primary/50 transition-all">
                                                         <img src={(m.profiles as any)?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.display_name}`} alt="avatar" className="w-full h-full object-cover" />
@@ -1134,7 +1415,23 @@ export default function PartyDetails() {
                                                 <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1">Serving Since</span>
                                                 <span className="text-[10px] font-black tracking-widest text-white">{selectedUserIntel?.profile?.work_anniversary || 'Private'}</span>
                                             </div>
+                                            <div className="bg-black/50 p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1">IG Handle</span>
+                                                <span className="text-[10px] font-black tracking-widest text-primary">{selectedUserIntel?.profile?.instagram || 'N/A'}</span>
+                                            </div>
+                                            <div className="bg-black/50 p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1">Section</span>
+                                                <span className="text-[10px] font-black tracking-widest text-white truncate max-w-[80px]">{selectedUserIntel?.profile?.favorite_section || 'N/A'}</span>
+                                            </div>
                                         </div>
+
+                                        {selectedUserIntel?.profile?.phone && (
+                                            <div className="w-full mt-2">
+                                                <a href={`tel:${selectedUserIntel.profile.phone}`} className="w-full py-4 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center gap-2 group transition-all hover:bg-primary/20">
+                                                    <span className="text-[10px] font-black uppercase tracking-widest text-primary">Secure Line: {selectedUserIntel.profile.phone}</span>
+                                                </a>
+                                            </div>
+                                        )}
 
                                         {selectedUserIntel?.profile?.bio && (
                                             <div className="mt-2 w-full p-4 bg-black/30 rounded-2xl border border-white/5 relative z-10">

@@ -4,8 +4,8 @@
   --font-sans: "Inter", "Outfit", var(--font-geist-sans), sans-serif;
   --font-mono: var(--font-geist-mono);
 
-  --color-primary: #007AFF;
-  --color-secondary: #5856D6;
+  --color-primary: var(--primary);
+  --color-secondary: var(--secondary);
   --color-accent: #FF2D55;
   --color-surface: #F2F2F7;
   --color-surface-dark: #1C1C1E;
@@ -18,6 +18,54 @@
 
   --animate-in: animate-in 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   --animate-out: animate-out 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+:root {
+  --primary: #007AFF;
+  --secondary: #5856D6;
+}
+
+[data-theme='emerald'] {
+  --primary: #10B981;
+  --secondary: #059669;
+}
+
+[data-theme='rose'] {
+  --primary: #F43F5E;
+  --secondary: #E11D48;
+}
+
+[data-theme='amber'] {
+  --primary: #F59E0B;
+  --secondary: #D97706;
+}
+
+[data-theme='purple'] {
+  --primary: #A855F7;
+  --secondary: #9333EA;
+}
+
+[data-theme='midnight'] {
+  --primary: #334155;
+  --secondary: #1E293B;
+}
+
+[data-theme='indigo'] {
+  --primary: #6366F1;
+  --secondary: #4F46E5;
+}
+
+.tap-highlight-transparent {
+  -webkit-tap-highlight-color: transparent !important;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }
 
 @keyframes animate-in {

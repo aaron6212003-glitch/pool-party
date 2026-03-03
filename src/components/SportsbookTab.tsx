@@ -24,9 +24,10 @@ interface SportsbookTabProps {
     currentUserId: string
     members: any[]
     isAdmin: boolean
+    onViewIntel?: (userId: string, name: string, isPrivate: boolean) => void
 }
 
-export default function SportsbookTab({ groupId, currentUserId, members, isAdmin }: SportsbookTabProps) {
+export default function SportsbookTab({ groupId, currentUserId, members, isAdmin, onViewIntel }: SportsbookTabProps) {
     const [slips, setSlips] = useState<Slip[]>([])
     const [bankroll, setBankroll] = useState<number | null>(null)
     const [loading, setLoading] = useState(true)
@@ -347,7 +348,8 @@ export default function SportsbookTab({ groupId, currentUserId, members, isAdmin
                                             )}
                                         </div>
                                         <div>
-                                            <div className="flex items-center gap-1.5">
+                                            <div className="flex items-center gap-1.5 cursor-pointer hover:opacity-80 transition-all"
+                                                onClick={() => onViewIntel?.(userId, memberName || 'Server', false)}>
                                                 <p className="text-sm font-black text-white">{memberName}</p>
                                                 {isChipLeader && (
                                                     <div className="bg-yellow-500/20 text-yellow-500 rounded px-1.5 py-0.5 text-[8px] flex items-center gap-1 font-black uppercase tracking-widest">

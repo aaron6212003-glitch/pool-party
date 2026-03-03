@@ -206,12 +206,125 @@ export default function NewShiftEntry() {
             })
 
             toast.success("Intelligence Logs Updated! 🎉")
+
+            // ── ACHIEVEMENTS ──
+            if (selectedGroupId && selectedGroupId !== 'individual') {
+                await checkAchievements(user.id, selectedGroupId, {
+                    sales: nSales,
+                    tips: nTips + nCash,
+                    date: selectedDate,
+                    shiftType: shiftType
+                })
+            }
+
             router.push('/app')
             router.refresh()
         } catch (error: any) {
             toast.error(error.message)
         } finally {
             setLoading(false)
+        }
+    }
+    const checkAchievements = async (userId: string, groupId: string, currentShift: any) => {
+        try {
+            // Get existing achievements to avoid duplicates
+            const { data: existing } = await supabase
+                .from('user_achievements')
+                .select('achievement_type')
+                .eq('user_id', userId)
+                .eq('group_id', groupId)
+
+            const unlockedTypes = new Set(existing?.map((a: any) => a.achievement_type) || [])
+            const newAchievements: string[] = []
+
+            // 1. Whale Hunter ($500+ Sales)
+            if (!unlockedTypes.has('whale_hunter') && currentShift.sales >= 500) {
+                newAchievements.push('whale_hunter')
+            }
+
+            // 2. Tip Monarch (25%+ Tip Portfolio)
+            const tipPct = currentShift.sales > 0 ? (currentShift.tips / currentShift.sales) : 0
+            if (!unlockedTypes.has('tip_king') && tipPct >= 0.25) {
+                newAchievements.push('tip_king')
+            }
+
+            // 3. Clutch Player (Weekend $400+)
+            const day = currentShift.date.getDay() // 0=Sun, 6=Sat
+            if (!unlockedTypes.has('clutch') && (day === 0 || day === 6) && currentShift.sales >= 400) {
+                newAchievements.push('clutch')
+            }
+
+            // For frequency-based ones, we need historical data
+            const { data: history } = await supabase
+                .from('shift_entries')
+                .select('date, shift_type')
+                .eq('user_id', userId)
+                .eq('group_id', groupId)
+
+            if (history) {
+                // 4. Consistent (5 Total Shifts)
+                if (!unlockedTypes.has('consistent') && history.length >= 5) {
+                    newAchievements.push('consistent')
+                }
+
+                // 5. On Fire (3+ Shifts in 7 days)
+                if (!unlockedTypes.has('on_fire')) {
+                    const last7Days = history.filter((s: any) => {
+                        const sDate = new Date(s.date)
+                        const diff = (new Date().getTime() - sDate.getTime()) / (1000 * 3600 * 24)
+                        return diff <= 7
+                    })
+                    if (last7Days.length >= 3) newAchievements.push('on_fire')
+                }
+
+                // 6. Night Owl (5 Late shifts in current month)
+                if (!unlockedTypes.has('night_owl')) {
+                    const currentMonth = new Date().getMonth()
+                    const lateShifts = history.filter((s: any) => {
+                        const sDate = new Date(s.date)
+                        return sDate.getMonth() === currentMonth && (s.shift_type === 'dinner' || s.shift_type === 'double')
+                    })
+                    if (lateShifts.length >= 5) newAchievements.push('night_owl')
+                }
+            }
+
+            // Award New Achievements
+            if (newAchievements.length > 0) {
+                const { data: profile } = await supabase.from('group_members').select('display_name').eq('user_id', userId).eq('group_id', groupId).single()
+                const name = profile?.display_name || 'A server'
+
+                for (const type of newAchievements) {
+                    await supabase.from('user_achievements').insert({
+                        user_id: userId,
+                        group_id: groupId,
+                        achievement_type: type
+                    })
+
+                    // Get label for feed
+                    const label = {
+                        'whale_hunter': '🏹 Whale Hunter',
+                        'tip_king': '👑 Tip Monarch',
+                        'clutch': '⚡ Clutch Player',
+                        'consistent': '💎 Consistent',
+                        'on_fire': '🔥 On Fire',
+                        'night_owl': '🦉 Night Owl'
+                    }[type]
+
+                    await supabase.from('party_feed').insert({
+                        group_id: groupId,
+                        user_id: userId,
+                        event_type: 'system',
+                        content: `🎖️ **${name}** has just been awarded the **${label}** medal!`,
+                        metadata: { type: 'achievement_unlocked', achievement: type }
+                    })
+
+                    toast(`Medal Earned: ${label}! 🎖️`, {
+                        description: "Check your Medal Rack in the party hub."
+                    })
+                }
+            }
+        } catch (e) {
+            console.error("Achievement check failed:", e)
         }
     }
 

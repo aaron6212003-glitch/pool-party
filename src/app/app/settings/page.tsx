@@ -23,6 +23,10 @@ export default function SettingsPage() {
     const [birthday, setBirthday] = useState('')
     const [workAnniversary, setWorkAnniversary] = useState('')
     const [bio, setBio] = useState('')
+    const [phone, setPhone] = useState('')
+    const [instagram, setInstagram] = useState('')
+    const [favoriteSection, setFavoriteSection] = useState('')
+    const [theme, setTheme] = useState('blue')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
     const supabase = createClient()
@@ -38,7 +42,7 @@ export default function SettingsPage() {
             // Load avatar_url from profiles table (real source of truth, not JWT)
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('avatar_url, share_to_leaderboard, birthday, work_anniversary, bio')
+                .select('avatar_url, share_to_leaderboard, birthday, work_anniversary, bio, theme, phone, instagram, favorite_section')
                 .eq('id', user.id)
                 .single()
             if (profile) {
@@ -46,6 +50,10 @@ export default function SettingsPage() {
                 setBirthday(profile.birthday || '')
                 setWorkAnniversary(profile.work_anniversary || '')
                 setBio(profile.bio || '')
+                setPhone(profile.phone || '')
+                setInstagram(profile.instagram || '')
+                setFavoriteSection(profile.favorite_section || '')
+                setTheme(profile.theme || 'blue')
                 if (profile.share_to_leaderboard !== null) {
                     setShareToLeaderboard(profile.share_to_leaderboard)
                 }
@@ -78,7 +86,11 @@ export default function SettingsPage() {
                 share_to_leaderboard: shareToLeaderboard,
                 birthday,
                 work_anniversary: workAnniversary,
-                bio
+                bio,
+                phone,
+                instagram,
+                favorite_section: favoriteSection,
+                theme
             })
             if (profileErr) { console.error('Profile upsert error:', profileErr); throw profileErr }
 
@@ -154,7 +166,12 @@ export default function SettingsPage() {
                 avatar_url: finalUrl,
                 birthday,
                 work_anniversary: workAnniversary,
-                bio
+                bio,
+                phone,
+                instagram,
+                favorite_section: favoriteSection,
+                share_to_leaderboard: shareToLeaderboard,
+                theme
             })
             if (profileErr) throw profileErr
 
@@ -167,6 +184,31 @@ export default function SettingsPage() {
             setUploading(false)
         }
     }
+
+    // Apply theme globally
+    useEffect(() => {
+        document.documentElement.setAttribute('data-theme', theme)
+        localStorage.setItem('app-theme', theme)
+
+        // Auto-save theme to profile for immediate cross-device sync
+        const syncTheme = async () => {
+            if (user) {
+                const { error } = await supabase.from('profiles').update({ theme }).eq('id', user.id)
+                if (error) console.error('Failed to sync theme:', error)
+            }
+        }
+        syncTheme()
+    }, [theme, user])
+
+    const THEMES = [
+        { id: 'blue', color: '#007AFF', name: 'Original' },
+        { id: 'emerald', color: '#10B981', name: 'Emerald' },
+        { id: 'rose', color: '#F43F5E', name: 'Rose' },
+        { id: 'amber', color: '#F59E0B', name: 'Amber' },
+        { id: 'purple', color: '#A855F7', name: 'Purple' },
+        { id: 'indigo', color: '#6366F1', name: 'Indigo' },
+        { id: 'midnight', color: '#334155', name: 'Midnight' },
+    ]
 
     // Owner-only admin actions — only deletes this user's own data
     const OWNER_ID = 'f46b2098-fcfe-4401-a68c-0d8fdedac90a'
@@ -278,8 +320,8 @@ export default function SettingsPage() {
                     <div className="space-y-1.5 relative z-10 flex-1">
                         <h3 className="text-2xl font-black font-outfit text-white tracking-tighter">{newName || user?.user_metadata?.full_name || 'Server'}</h3>
                         <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">{user?.email}</p>
-                        {bio && <p className="text-[10px] text-zinc-400 font-medium italic line-clamp-2 max-w-[200px]">"{bio}"</p>}
                         <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black tracking-widest px-3 py-1 mt-1 inline-block">🍽️ Server</Badge>
+                        {favoriteSection && <p className="text-[8px] text-zinc-600 font-black uppercase tracking-widest mt-1">Sect: {favoriteSection}</p>}
                     </div>
                 </Card>
             </section>
@@ -371,6 +413,45 @@ export default function SettingsPage() {
                 </Card>
             </section>
 
+            {/* App Aesthetics */}
+            <section className="space-y-4">
+                <div className="flex justify-between items-center px-1">
+                    <h2 className="font-black font-outfit text-lg text-white tracking-tight">App Aesthetics</h2>
+                    <Badge className="bg-primary/20 text-primary border-none text-[8px]">Visual Kit</Badge>
+                </div>
+
+                <Card className="!p-6 bg-zinc-900/40 border-white/5 rounded-3xl shadow-xl">
+                    <div className="space-y-4">
+                        <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-white/5 flex items-center justify-center text-primary">
+                                <Settings className="w-4 h-4" />
+                            </div>
+                            <div>
+                                <p className="text-sm font-black font-outfit text-white leading-tight">Brand Color</p>
+                                <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest leading-none">Global Accent Color</p>
+                            </div>
+                        </div>
+
+                        <div className="grid grid-cols-6 gap-2">
+                            {THEMES.map((t) => (
+                                <button
+                                    key={t.id}
+                                    onClick={() => setTheme(t.id)}
+                                    className={cn(
+                                        "w-full aspect-square rounded-xl border-2 transition-all flex items-center justify-center tap-highlight-transparent",
+                                        theme === t.id ? "border-white ring-4 ring-white/10" : "border-transparent opacity-60 hover:opacity-100"
+                                    )}
+                                    style={{ backgroundColor: t.color }}
+                                >
+                                    {theme === t.id && <div className="w-2 h-2 rounded-full bg-white shadow-lg" />}
+                                </button>
+                            ))}
+                        </div>
+                        <p className="text-[8px] font-black uppercase tracking-widest text-zinc-700 text-center">Tapping a color updates the entire app instantly</p>
+                    </div>
+                </Card>
+            </section>
+
             {/* Sign Out */}
             <section className="pt-2 pb-2">
                 <button
@@ -402,9 +483,9 @@ export default function SettingsPage() {
                             initial={{ scale: 0.9, y: 20 }}
                             animate={{ scale: 1, y: 0 }}
                             exit={{ scale: 0.9, y: 20 }}
-                            className="w-full max-w-sm"
+                            className="w-full max-w-sm max-h-[90vh] overflow-y-auto no-scrollbar"
                         >
-                            <Card className="!p-10 shadow-3xl bg-zinc-900/90 border-white/10 rounded-[3rem] space-y-8">
+                            <Card className="!p-10 shadow-3xl bg-zinc-900/90 border-white/10 rounded-[3rem] space-y-8 mb-20">
                                 <div className="flex justify-between items-center">
                                     <div className="space-y-1">
                                         <h3 className="text-2xl font-black font-outfit text-white tracking-tighter">Edit Identity.</h3>
@@ -484,6 +565,31 @@ export default function SettingsPage() {
                                         />
                                     </div>
 
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Input
+                                            label="Phone Number"
+                                            value={phone}
+                                            onChange={(e) => setPhone(e.target.value)}
+                                            placeholder="555-555-5555"
+                                            className="bg-black text-xs"
+                                        />
+                                        <Input
+                                            label="Instagram Handle"
+                                            value={instagram}
+                                            onChange={(e) => setInstagram(e.target.value)}
+                                            placeholder="@handle"
+                                            className="bg-black text-xs"
+                                        />
+                                    </div>
+
+                                    <Input
+                                        label="Favorite Section"
+                                        value={favoriteSection}
+                                        onChange={(e) => setFavoriteSection(e.target.value)}
+                                        placeholder="Patios / Upstairs"
+                                        className="bg-black text-xs"
+                                    />
+
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Short Bio</label>
                                         <textarea
@@ -507,101 +613,103 @@ export default function SettingsPage() {
                 )}
             </AnimatePresence>
             {/* Admin Panel — PIN locked */}
-            {user && (
-                <section className="space-y-3">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-red-500">🔐 Admin Panel</p>
-                    <div className="rounded-[2rem] border border-red-500/20 bg-red-950/20 p-6 space-y-4">
-                        {!adminUnlocked ? (
-                            <>
-                                <p className="text-[10px] font-black uppercase tracking-widest text-red-400/60 text-center">Enter PIN to unlock</p>
-                                <div className="flex justify-center gap-2 mb-2">
-                                    {[0, 1, 2, 3, 4, 5].map(i => (
-                                        <div key={i} className={cn(
-                                            "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all",
-                                            adminPin.length > i
-                                                ? pinError ? "border-red-500 bg-red-500" : "border-primary bg-primary"
-                                                : "border-white/20 bg-white/5"
-                                        )}>
-                                            {adminPin.length > i && !pinError && <div className="w-2 h-2 rounded-full bg-white" />}
-                                        </div>
-                                    ))}
-                                </div>
-                                <div className="grid grid-cols-3 gap-2">
-                                    {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k, idx) => (
-                                        <button
-                                            key={idx}
-                                            disabled={k === ''}
-                                            onClick={() => {
-                                                if (k === '⌫') {
-                                                    setPinError(false)
-                                                    setAdminPin(p => p.slice(0, -1))
-                                                } else if (typeof k === 'number') {
-                                                    setPinError(false)
-                                                    const next = adminPin + k
-                                                    setAdminPin(next)
-                                                    if (next.length === 6) {
-                                                        if (next === ADMIN_PIN) {
-                                                            setAdminUnlocked(true)
-                                                        } else {
-                                                            setPinError(true)
-                                                            setTimeout(() => { setAdminPin(''); setPinError(false) }, 600)
+            {
+                user && (
+                    <section className="space-y-3">
+                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-red-500">🔐 Admin Panel</p>
+                        <div className="rounded-[2rem] border border-red-500/20 bg-red-950/20 p-6 space-y-4">
+                            {!adminUnlocked ? (
+                                <>
+                                    <p className="text-[10px] font-black uppercase tracking-widest text-red-400/60 text-center">Enter PIN to unlock</p>
+                                    <div className="flex justify-center gap-2 mb-2">
+                                        {[0, 1, 2, 3, 4, 5].map(i => (
+                                            <div key={i} className={cn(
+                                                "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all",
+                                                adminPin.length > i
+                                                    ? pinError ? "border-red-500 bg-red-500" : "border-primary bg-primary"
+                                                    : "border-white/20 bg-white/5"
+                                            )}>
+                                                {adminPin.length > i && !pinError && <div className="w-2 h-2 rounded-full bg-white" />}
+                                            </div>
+                                        ))}
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-2">
+                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k, idx) => (
+                                            <button
+                                                key={idx}
+                                                disabled={k === ''}
+                                                onClick={() => {
+                                                    if (k === '⌫') {
+                                                        setPinError(false)
+                                                        setAdminPin(p => p.slice(0, -1))
+                                                    } else if (typeof k === 'number') {
+                                                        setPinError(false)
+                                                        const next = adminPin + k
+                                                        setAdminPin(next)
+                                                        if (next.length === 6) {
+                                                            if (next === ADMIN_PIN) {
+                                                                setAdminUnlocked(true)
+                                                            } else {
+                                                                setPinError(true)
+                                                                setTimeout(() => { setAdminPin(''); setPinError(false) }, 600)
+                                                            }
                                                         }
                                                     }
-                                                }
-                                            }}
-                                            className={cn(
-                                                "py-3 rounded-2xl text-sm font-black transition-all",
-                                                k === '' ? "opacity-0 pointer-events-none" : "",
-                                                k === '⌫' ? "bg-white/5 text-zinc-400 active:bg-white/10" : "bg-white/5 text-white hover:bg-white/10 active:bg-primary/30 active:scale-95"
-                                            )}
-                                        >{k}</button>
-                                    ))}
-                                </div>
-                            </>
-                        ) : (
-                            <>
-                                <div className="flex items-center justify-between">
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-red-400/60">Destructive Actions</p>
-                                    <button onClick={() => { setAdminUnlocked(false); setAdminPin('') }} className="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase tracking-widest font-black">🔒 Lock</button>
-                                </div>
-                                <button
-                                    onClick={handleWipeShifts}
-                                    disabled={loading}
-                                    className="w-full py-4 px-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-black uppercase tracking-widest hover:bg-red-500/20 active:scale-95 transition-all text-left flex items-center gap-3"
-                                >
-                                    <span className="text-lg">🗑️</span>
-                                    <div>
-                                        <p>Wipe All My Shifts</p>
-                                        <p className="text-[10px] text-red-400/50 font-normal normal-case tracking-normal mt-0.5">Deletes all shift entries &amp; resets your PRs</p>
+                                                }}
+                                                className={cn(
+                                                    "py-3 rounded-2xl text-sm font-black transition-all",
+                                                    k === '' ? "opacity-0 pointer-events-none" : "",
+                                                    k === '⌫' ? "bg-white/5 text-zinc-400 active:bg-white/10" : "bg-white/5 text-white hover:bg-white/10 active:bg-primary/30 active:scale-95"
+                                                )}
+                                            >{k}</button>
+                                        ))}
                                     </div>
-                                </button>
-                                <button
-                                    onClick={handleWipeFeedEvents}
-                                    disabled={loading}
-                                    className="w-full py-4 px-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-black uppercase tracking-widest hover:bg-red-500/20 active:scale-95 transition-all text-left flex items-center gap-3"
-                                >
-                                    <span className="text-lg">🧹</span>
-                                    <div>
-                                        <p>Wipe My Feed Events</p>
-                                        <p className="text-[10px] text-red-400/50 font-normal normal-case tracking-normal mt-0.5">Removes all PR &amp; grade alerts from party feeds</p>
+                                </>
+                            ) : (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[10px] font-black uppercase tracking-widest text-red-400/60">Destructive Actions</p>
+                                        <button onClick={() => { setAdminUnlocked(false); setAdminPin('') }} className="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase tracking-widest font-black">🔒 Lock</button>
                                     </div>
-                                </button>
-                                <button
-                                    onClick={handleNuclearWipe}
-                                    disabled={loading}
-                                    className="w-full py-4 px-5 rounded-2xl bg-red-900/30 border border-red-600/50 text-red-300 text-xs font-black uppercase tracking-widest hover:bg-red-900/50 active:scale-95 transition-all text-left flex items-center gap-3"
-                                >
-                                    <span className="text-lg">☢️</span>
-                                    <div>
-                                        <p>Nuclear Reset — Wipe Everyone</p>
-                                        <p className="text-[10px] text-red-300/50 font-normal normal-case tracking-normal mt-0.5">Deletes ALL shifts &amp; PRs for every member in your parties</p>
-                                    </div>
-                                </button>
-                            </>
-                        )}
-                    </div>
-                </section>
-            )}
-        </div>
+                                    <button
+                                        onClick={handleWipeShifts}
+                                        disabled={loading}
+                                        className="w-full py-4 px-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-black uppercase tracking-widest hover:bg-red-500/20 active:scale-95 transition-all text-left flex items-center gap-3"
+                                    >
+                                        <span className="text-lg">🗑️</span>
+                                        <div>
+                                            <p>Wipe All My Shifts</p>
+                                            <p className="text-[10px] text-red-400/50 font-normal normal-case tracking-normal mt-0.5">Deletes all shift entries &amp; resets your PRs</p>
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={handleWipeFeedEvents}
+                                        disabled={loading}
+                                        className="w-full py-4 px-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-black uppercase tracking-widest hover:bg-red-500/20 active:scale-95 transition-all text-left flex items-center gap-3"
+                                    >
+                                        <span className="text-lg">🧹</span>
+                                        <div>
+                                            <p>Wipe My Feed Events</p>
+                                            <p className="text-[10px] text-red-400/50 font-normal normal-case tracking-normal mt-0.5">Removes all PR &amp; grade alerts from party feeds</p>
+                                        </div>
+                                    </button>
+                                    <button
+                                        onClick={handleNuclearWipe}
+                                        disabled={loading}
+                                        className="w-full py-4 px-5 rounded-2xl bg-red-900/30 border border-red-600/50 text-red-300 text-xs font-black uppercase tracking-widest hover:bg-red-900/50 active:scale-95 transition-all text-left flex items-center gap-3"
+                                    >
+                                        <span className="text-lg">☢️</span>
+                                        <div>
+                                            <p>Nuclear Reset — Wipe Everyone</p>
+                                            <p className="text-[10px] text-red-300/50 font-normal normal-case tracking-normal mt-0.5">Deletes ALL shifts &amp; PRs for every member in your parties</p>
+                                        </div>
+                                    </button>
+                                </>
+                            )}
+                        </div>
+                    </section>
+                )
+            }
+        </div >
     )
 }
