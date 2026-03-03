@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { Calculator, Save, DollarSign, Calendar as CalendarIcon, Clock, ChevronDown, UserCircle, Banknote, Timer, Info } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { format, eachDayOfInterval, subDays, isSameDay, getDaysInMonth, setMonth, setDate as setDay, setYear, getYear, getMonth, getDate } from 'date-fns'
+import { calculateShiftGrade } from '@/lib/calculations'
 
 export default function NewShiftEntry() {
     const [selectedDate, setSelectedDate] = useState(new Date())
@@ -19,6 +20,7 @@ export default function NewShiftEntry() {
     // Duration as Hours and Minutes
     const [hoursVal, setHoursVal] = useState('')
     const [minutesVal, setMinutesVal] = useState('')
+    const [hourlyWage, setHourlyWage] = useState('')
 
     const [supportPct, setSupportPct] = useState(0.05)
     const [groups, setGroups] = useState<any[]>([])
@@ -56,6 +58,9 @@ export default function NewShiftEntry() {
     const preTaxEarnings = grossTipsTotal - parseFloat(tipOutAmount)
     const postTaxEarnings = preTaxEarnings * 0.85 // 15% TAX
     const hourlyRate = (nHours > 0) ? (preTaxEarnings / nHours).toFixed(2) : '0.00'
+    const nWage = parseFloat(hourlyWage) || 0
+    const wageEarnings = nWage * nHours
+    const totalWithWage = preTaxEarnings + wageEarnings
 
     useEffect(() => {
         const fetchGroups = async () => {
@@ -98,7 +103,7 @@ export default function NewShiftEntry() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) throw new Error("Not logged in")
 
-            const { error } = await supabase.from('shift_entries').insert({
+            const { data: insertedShift, error } = await supabase.from('shift_entries').insert({
                 user_id: user.id,
                 group_id: selectedGroupId === 'individual' ? null : selectedGroupId,
                 date: format(selectedDate, 'yyyy-MM-dd'),
@@ -110,12 +115,88 @@ export default function NewShiftEntry() {
                     supportPool: tipOutAmount,
                     cashTips: nCash,
                     hourlyRate: parseFloat(hourlyRate),
+                    hourlyWage: nWage || null,
+                    wageEarnings: nWage > 0 ? wageEarnings : null,
                     rawTime: { h, m }
                 },
                 share_to_feed: selectedGroupId !== 'individual'
-            })
+            }).select('id').single()
 
             if (error) throw error
+
+            // Trigger settlement for any open bets resting on this shift
+            try {
+                await fetch('/api/sportsbook/settle', { method: 'POST' })
+            } catch (e) {
+                console.error('Settlement trigger failed:', e)
+            }
+
+            // ── SYSTEM FEED EVENTS ── 
+            if (selectedGroupId && selectedGroupId !== 'individual') {
+                try {
+                    const { data: profile } = await supabase.from('group_members').select('display_name').eq('user_id', user.id).eq('group_id', selectedGroupId).single()
+                    const name = profile?.display_name || 'A server'
+
+                    const { data: pastShifts } = await supabase.from('shift_entries').select('id, net_sales, tips, computed_data').eq('user_id', user.id)
+
+                    let isSalesPR = false
+                    let isTipsPR = false
+
+                    if (pastShifts && pastShifts.length > 1) { // more than just the current shift
+                        const historicalShifts = pastShifts.filter((s: any) => s.id !== insertedShift?.id)
+                        const maxSales = Math.max(...historicalShifts.map((s: any) => parseFloat(s.net_sales || 0)))
+                        const maxTips = Math.max(...historicalShifts.map((s: any) => parseFloat(s.tips || 0) + parseFloat(s.computed_data?.cashTips || 0) + parseFloat(s.computed_data?.wageEarnings || 0)))
+
+                        const currentTips = nTips + nCash + (nWage > 0 ? wageEarnings : 0)
+
+                        if (nSales > maxSales) isSalesPR = true
+                        if (currentTips > maxTips) isTipsPR = true
+                    }
+
+                    const gradeInfo = calculateShiftGrade(nSales, nTips + nCash) // only factoring actual tips for grade
+                    const feedEvents = []
+
+                    if (isSalesPR) {
+                        feedEvents.push({
+                            group_id: selectedGroupId,
+                            user_id: user.id,
+                            event_type: 'system',
+                            content: `🚨 **${name}** just set an all-time Personal Best for Sales: **$${nSales.toFixed(0)}**!`,
+                            metadata: { type: 'pr_sales' },
+                            is_anonymous: false
+                        })
+                    }
+
+                    if (isTipsPR) {
+                        const currentTips = nTips + nCash + (nWage > 0 ? wageEarnings : 0)
+                        feedEvents.push({
+                            group_id: selectedGroupId,
+                            user_id: user.id,
+                            event_type: 'system',
+                            content: `💰 **${name}** just hit an all-time Personal Best for Takehome: **$${currentTips.toFixed(0)}**!`,
+                            metadata: { type: 'pr_tips' },
+                            is_anonymous: false
+                        })
+                    }
+
+                    if (gradeInfo.grade === 'A+' || gradeInfo.grade === 'A') {
+                        feedEvents.push({
+                            group_id: selectedGroupId,
+                            user_id: user.id,
+                            event_type: 'system',
+                            content: `🔥 **${name}** crushed it tonight. Logged an **${gradeInfo.grade}** shift.`,
+                            metadata: { type: 'grade_a', grade: gradeInfo.grade, color: gradeInfo.color },
+                            is_anonymous: false
+                        })
+                    }
+
+                    if (feedEvents.length > 0) {
+                        await supabase.from('party_feed').insert(feedEvents)
+                    }
+                } catch (feedErr) {
+                    console.error("Failed to post automated feed events", feedErr)
+                }
+            }
 
             confetti({
                 particleCount: 150,
@@ -268,6 +349,17 @@ export default function NewShiftEntry() {
                             <input type="number" placeholder="0" max="59" className="bg-transparent text-right text-2xl font-black font-outfit text-white w-12 outline-none" value={minutesVal} onChange={(e) => setMinutesVal(e.target.value)} />
                         </div>
                     </div>
+                    {/* Hourly Wage */}
+                    <div className="bg-black/40 rounded-2xl p-4 flex items-center justify-between border border-white/5 group hover:border-primary/30 transition-all">
+                        <div>
+                            <span className="text-[9px] font-black text-zinc-700 uppercase">Hourly Wage</span>
+                            <p className="text-[8px] text-zinc-800 font-bold uppercase tracking-widest">Optional</p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                            <span className="text-zinc-700 text-sm font-black font-outfit">$</span>
+                            <input type="number" step="0.25" placeholder="0.00" className="bg-transparent text-right text-2xl font-black font-outfit text-white w-16 outline-none" value={hourlyWage} onChange={(e) => setHourlyWage(e.target.value)} />
+                        </div>
+                    </div>
                 </Card>
 
                 {/* THE CORE NUMBERS */}
@@ -347,11 +439,17 @@ export default function NewShiftEntry() {
                             </div>
                         </div>
 
+                        {nWage > 0 && nHours > 0 && (
+                            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
+                                <span>Base Pay ({nHours.toFixed(1)}h × ${nWage}/hr)</span>
+                                <span className="text-emerald-400">+${wageEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                            </div>
+                        )}
                         {nHours > 0 && (
                             <div className="pt-4 border-t border-white/5 flex items-center justify-between">
                                 <div className="flex items-center gap-2">
                                     <Timer className="w-3 h-3 text-indigo-400" />
-                                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Session Hourly:</span>
+                                    <span className="text-[9px] font-black text-zinc-500 uppercase tracking-widest">Tip Hourly Rate:</span>
                                 </div>
                                 <span className="text-lg font-black font-outfit text-indigo-400">${hourlyRate}/hr</span>
                             </div>
@@ -362,7 +460,7 @@ export default function NewShiftEntry() {
                 <div className="pt-6 pb-20">
                     <Button type="submit" className="w-full text-2xl py-8 shadow-3xl shadow-primary/30 flex items-center justify-center gap-4 active:scale-[0.97] transition-all bg-primary hover:bg-primary/95 text-white border-none rounded-[2.5rem] font-outfit font-black" disabled={loading}>
                         <Save className="w-8 h-8" />
-                        {loading ? "Capturing..." : "Establish Record"}
+                        {loading ? "Capturing..." : "Log Shift"}
                     </Button>
                 </div>
             </form>

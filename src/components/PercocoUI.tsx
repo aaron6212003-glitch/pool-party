@@ -142,7 +142,7 @@ export const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, o
 )
 
 export const GroupInvitePanel = ({ code, onCopy }: { code: string, onCopy: () => void }) => {
-    const inviteUrl = typeof window !== 'undefined' ? `${window.location.origin}/join/${code}` : code;
+    const inviteUrl = `https://percoco-pool.vercel.app/join/${code}`;
     return (
         <Card className="!p-8 shadow-apple-lg border-primary/10 space-y-4">
             <div className="flex items-center gap-3">

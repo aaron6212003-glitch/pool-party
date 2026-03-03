@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Card, SectionTitle, Badge, Button, Modal, cn, Input } from '@/components/PercocoUI'
+import { Card, Badge, Button, Modal, cn } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
-import { TrendingUp, Plus, LayoutGrid, Calendar, ChevronRight, Clock, DollarSign, Wallet, ShieldAlert, PieChart, Trash2, AlertCircle, Info, Calculator, Banknote, Timer } from 'lucide-react'
-import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns'
+import { Plus, LayoutGrid, Calendar, ChevronRight, Wallet, Trash2, AlertCircle, Info, Calculator, Banknote } from 'lucide-react'
+import { format, startOfWeek, endOfWeek } from 'date-fns'
 import { toast } from 'sonner'
 
 export default function Dashboard() {
@@ -14,20 +14,32 @@ export default function Dashboard() {
         netSales: 0,
         tipOutPaid: 0,
         hours: 0,
+        ccTips: 0,
+        cashTips: 0,
         grossTips: 0,
-        hourlyRate: 2.13
+        wageEarnings: 0,
     })
     const [recentShifts, setRecentShifts] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
     const [deleteModalKey, setDeleteModalKey] = useState<string | null>(null)
     const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
+    const [paycheckExpanded, setPaycheckExpanded] = useState(false)
+    const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
     const supabase = createClient()
 
     const fetchDashboardData = async () => {
         const { data: { user } } = await supabase.auth.getUser()
         if (!user) return
         setUser(user)
+
+        // Load avatar from profiles table (source of truth)
+        const { data: profileData } = await supabase
+            .from('profiles')
+            .select('avatar_url')
+            .eq('id', user.id)
+            .single()
+        if (profileData?.avatar_url) setAvatarUrl(profileData.avatar_url)
 
         const today = new Date()
         const start = startOfWeek(today, { weekStartsOn: 1 }).toISOString().split('T')[0]
@@ -41,17 +53,22 @@ export default function Dashboard() {
             .lte('date', end)
 
         if (weeklyEntries) {
-            const totals = weeklyEntries.reduce((acc, curr) => {
+            const totals = (weeklyEntries as any[]).reduce((acc: any, curr) => {
                 const tipOut = parseFloat(curr.computed_data?.supportPool || 0)
                 const cash = parseFloat(curr.computed_data?.cashTips || 0)
+                const cc = parseFloat(curr.tips || 0)
+                const wage = parseFloat(curr.computed_data?.wageEarnings || 0)
                 return {
-                    netSales: acc.netSales + parseFloat(curr.net_sales || 0),
+                    netSales: acc.netSales + (parseFloat(curr.net_sales) || 0),
                     tipOutPaid: acc.tipOutPaid + tipOut,
-                    hours: acc.hours + parseFloat(curr.hours || 0),
-                    grossTips: acc.grossTips + parseFloat(curr.tips || 0) + cash
+                    hours: acc.hours + (parseFloat(curr.hours) || 0),
+                    ccTips: acc.ccTips + cc,
+                    cashTips: acc.cashTips + cash,
+                    grossTips: acc.grossTips + cc + cash,
+                    wageEarnings: acc.wageEarnings + wage,
                 }
-            }, { netSales: 0, tipOutPaid: 0, hours: 0, grossTips: 0 })
-            setStats(prev => ({ ...prev, ...totals }))
+            }, { netSales: 0, tipOutPaid: 0, hours: 0, ccTips: 0, cashTips: 0, grossTips: 0, wageEarnings: 0 })
+            setStats(totals)
         }
 
         const { data: recent } = await supabase
@@ -88,14 +105,14 @@ export default function Dashboard() {
 
     const firstName = user?.user_metadata?.full_name?.split(' ')[0] ?? 'Server'
 
-    // FINANCIAL CALCULATIONS (15% Tax)
-    const basePay = stats.hours * stats.hourlyRate
-    const grossTakeHome = (stats.grossTips - stats.tipOutPaid) + basePay
-    const taxRate = 0.15
-    const estimatedTax = grossTakeHome * taxRate
-    const takeHomePay = grossTakeHome - estimatedTax
+    // PAYCHECK CALCULATIONS
+    const preTaxEarnings = (stats.grossTips - stats.tipOutPaid) + stats.wageEarnings
+    const estimatedTax = preTaxEarnings * 0.15
+    const takeHomePay = preTaxEarnings - estimatedTax
+    const cashInHand = stats.cashTips
+    const digitalDeposit = Math.max(0, takeHomePay - cashInHand)
 
-    const selectedShift = recentShifts.find(s => s.id === selectedShiftId)
+    const selectedShift = recentShifts.find((s: any) => s.id === selectedShiftId)
 
     if (loading) {
         return (
@@ -115,7 +132,7 @@ export default function Dashboard() {
                 <Link href="/app/settings" className="relative group">
                     <div className="absolute -inset-1 bg-primary/20 blur-md rounded-full opacity-0 group-hover:opacity-100 transition-opacity"></div>
                     <div className="w-11 h-11 rounded-full bg-zinc-900 border border-white/10 overflow-hidden ring-2 ring-white/5 relative z-10 shadow-xl">
-                        <img src={user?.user_metadata?.avatar_url ?? `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} alt="Avatar" className="w-full h-full object-cover" />
+                        <img src={avatarUrl || `https://api.dicebear.com/7.x/avataaars/svg?seed=${firstName}`} alt="Avatar" className="w-full h-full object-cover" />
                     </div>
                 </Link>
             </header>
@@ -131,7 +148,7 @@ export default function Dashboard() {
                     <p className="text-lg font-black font-outfit text-white leading-none">${stats.grossTips.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                 </div>
                 <div className="p-4 bg-zinc-900/40 border border-white/5 rounded-2xl text-center space-y-1">
-                    <p className="text-[7px] font-black uppercase tracking-widest text-zinc-600">Hours Logged</p>
+                    <p className="text-[7px] font-black uppercase tracking-widest text-zinc-600">Hours</p>
                     <p className="text-lg font-black font-outfit text-white leading-none">
                         {Math.floor(stats.hours)}h {Math.round((stats.hours % 1) * 60)}m
                     </p>
@@ -139,22 +156,95 @@ export default function Dashboard() {
             </section>
 
             {/* PAYCHECK ESTIMATOR */}
-            <section className="space-y-4">
-                <div className="relative group">
-                    <div className="absolute -inset-1 rounded-[2.5rem] blur-3xl bg-primary/20 opacity-30"></div>
-                    <Card className="relative !p-10 bg-zinc-900 border-white/10 rounded-[2.5rem] shadow-3xl overflow-hidden border-t-primary/20">
-                        <div className="absolute top-0 right-0 p-8 opacity-5">
-                            <PieChart className="w-48 h-48" />
-                        </div>
+            <section>
+                <div className="relative">
+                    <div className="absolute -inset-1 rounded-[2.5rem] blur-3xl bg-primary/20 opacity-30 pointer-events-none"></div>
+                    <Card className="relative !p-0 bg-zinc-900 border-white/10 rounded-[2.5rem] shadow-3xl overflow-hidden">
 
-                        <div className="space-y-2 relative z-10">
-                            <div className="flex items-center gap-2 mb-1">
-                                <Wallet className="w-3 h-3 text-primary" />
-                                <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500">Take-Home Estimate</span>
+                        {/* Tappable header */}
+                        <button
+                            onClick={() => setPaycheckExpanded(e => !e)}
+                            className="w-full text-left p-10 pb-8 relative"
+                        >
+                            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
+                                <Banknote className="w-48 h-48" />
                             </div>
-                            <h2 className="text-7xl font-black font-outfit text-white tracking-tighter leading-none">${takeHomePay.toLocaleString(undefined, { maximumFractionDigits: 0 })}</h2>
-                            <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest pt-2">Calculated after 15% Taxes & Tip out</p>
-                        </div>
+                            <div className="space-y-2 relative z-10">
+                                <div className="flex items-center justify-between">
+                                    <div className="flex items-center gap-2">
+                                        <Wallet className="w-3 h-3 text-primary" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500">Weekly Paycheck Est.</span>
+                                    </div>
+                                    <Badge className={cn("border-none text-[8px] font-black uppercase tracking-widest transition-colors", paycheckExpanded ? "bg-primary/20 text-primary" : "bg-white/5 text-zinc-600")}>
+                                        {paycheckExpanded ? 'Hide' : 'Breakdown'}
+                                    </Badge>
+                                </div>
+                                <h2 className="text-7xl font-black font-outfit text-white tracking-tighter leading-none">
+                                    ${takeHomePay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </h2>
+                                <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest pt-1">Post-tax estimate · resets Monday</p>
+                            </div>
+                        </button>
+
+                        {/* Expandable detail breakdown */}
+                        {paycheckExpanded && (
+                            <div className="border-t border-white/5 p-8 pt-6 space-y-3 bg-black/40">
+                                <p className="text-[9px] font-black uppercase tracking-[0.4em] text-zinc-600 mb-4">This Week's Breakdown</p>
+
+                                <div className="space-y-2.5">
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-zinc-500">CC Tips</span>
+                                        <span className="text-xs font-black text-white font-outfit">+${stats.ccTips.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-zinc-500">Cash Tips</span>
+                                        <span className="text-xs font-black text-emerald-400 font-outfit">+${stats.cashTips.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                    {stats.wageEarnings > 0 && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-xs font-bold text-zinc-500">Base Wage</span>
+                                            <span className="text-xs font-black text-emerald-400 font-outfit">+${stats.wageEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                        </div>
+                                    )}
+                                    <div className="flex justify-between items-center">
+                                        <span className="text-xs font-bold text-red-500/80">Tip Out Paid</span>
+                                        <span className="text-xs font-black text-red-500 font-outfit">-${stats.tipOutPaid.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    </div>
+                                </div>
+
+                                <div className="flex justify-between items-center pt-3 border-t border-white/5">
+                                    <span className="text-xs font-black text-white uppercase tracking-tighter">Pre-Tax Earnings</span>
+                                    <span className="text-lg font-black text-white font-outfit">${preTaxEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+                                <div className="flex justify-between items-center">
+                                    <span className="text-xs font-bold text-zinc-600 italic">Est. 15% Tax</span>
+                                    <span className="text-xs font-black text-indigo-400 font-outfit">-${estimatedTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                </div>
+
+                                <div className="flex justify-between items-center p-5 rounded-2xl bg-primary/10 border border-primary/20 mt-2">
+                                    <div>
+                                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Post-Tax Take-Home</p>
+                                        <p className="text-[8px] font-bold text-primary/50 uppercase tracking-widest mt-0.5">Tips + Wage − Tax</p>
+                                    </div>
+                                    <p className="text-3xl font-black text-primary font-outfit">${takeHomePay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                </div>
+
+                                <div className="grid grid-cols-2 gap-3 pt-1">
+                                    <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-emerald-500/80 mb-1">Cash in Hand</p>
+                                        <p className="text-lg font-black font-outfit text-emerald-400">${cashInHand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        <p className="text-[7px] font-bold text-emerald-900 uppercase tracking-widest mt-0.5">Already with you</p>
+                                    </div>
+                                    <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400/80 mb-1">Expected Deposit</p>
+                                        <p className="text-lg font-black font-outfit text-indigo-400">${digitalDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        <p className="text-[7px] font-bold text-indigo-900 uppercase tracking-widest mt-0.5">CC tips after tax</p>
+                                    </div>
+                                </div>
+
+                                <p className="text-[8px] text-zinc-800 font-bold text-center pt-2">Estimates only. Actual withholding varies by employer.</p>
+                            </div>
+                        )}
                     </Card>
                 </div>
             </section>
@@ -182,18 +272,17 @@ export default function Dashboard() {
                         <div className="w-1 h-4 bg-primary rounded-full"></div>
                         <h2 className="font-black font-outfit text-lg text-white tracking-tight uppercase">Recent Sessions</h2>
                     </div>
-                    <Link href="/app/history" className="text-zinc-500 text-[9px] font-black uppercase tracking-widest hover:text-primary transition-colors">History Catalog →</Link>
+                    <Link href="/app/history" className="text-zinc-500 text-[9px] font-black uppercase tracking-widest hover:text-primary transition-colors">History →</Link>
                 </div>
 
                 <div className="space-y-4">
                     {recentShifts.length > 0 ? (
-                        recentShifts.map((shift) => {
+                        recentShifts.map((shift: any) => {
                             const cash = parseFloat(shift.computed_data?.cashTips || 0)
                             const cc = parseFloat(shift.tips || 0)
                             const tipOut = parseFloat(shift.computed_data?.supportPool || 0)
                             const shiftNet = (cc + cash) - tipOut
-                            const shiftTax = shiftNet * 0.15
-                            const shiftTakeHome = shiftNet - shiftTax
+                            const shiftTakeHome = shiftNet * 0.85
 
                             return (
                                 <div key={shift.id} className="relative group">
@@ -217,11 +306,9 @@ export default function Dashboard() {
                                                     </div>
                                                 </div>
                                             </div>
-                                            <div className="flex items-center gap-4">
-                                                <div className="text-right">
-                                                    <p className="font-black font-outfit text-2xl text-white tracking-tighter leading-none">${shiftTakeHome.toFixed(0)}</p>
-                                                    <p className="text-[8px] text-primary font-black uppercase tracking-widest mt-1 opacity-60">Net Profit</p>
-                                                </div>
+                                            <div className="text-right">
+                                                <p className="font-black font-outfit text-2xl text-white tracking-tighter leading-none">${shiftTakeHome.toFixed(0)}</p>
+                                                <p className="text-[8px] text-primary font-black uppercase tracking-widest mt-1 opacity-60">Net Profit</p>
                                             </div>
                                         </div>
                                         <div className="bg-black/20 p-4 px-8 flex justify-between items-center group-hover:bg-primary/5 transition-colors">
@@ -261,11 +348,7 @@ export default function Dashboard() {
             </section>
 
             {/* SHIFT DETAILS MODAL */}
-            <Modal
-                isOpen={!!selectedShiftId}
-                onClose={() => setSelectedShiftId(null)}
-                title="Shift Intelligence"
-            >
+            <Modal isOpen={!!selectedShiftId} onClose={() => setSelectedShiftId(null)} title="Shift Intelligence">
                 {selectedShift && (
                     <div className="space-y-8">
                         <div className="flex justify-between items-center">
@@ -278,51 +361,62 @@ export default function Dashboard() {
                             </div>
                         </div>
 
-                        {/* Breakdown Grid */}
                         <div className="grid grid-cols-2 gap-4">
                             <div className="p-5 bg-black/40 border border-white/5 rounded-2xl space-y-1">
                                 <p className="text-[7px] font-black uppercase tracking-widest text-zinc-600">Total Sales</p>
-                                <p className="text-2xl font-black font-outfit text-white font-outfit">${parseFloat(selectedShift.net_sales).toLocaleString()}</p>
+                                <p className="text-2xl font-black font-outfit text-white">${parseFloat(selectedShift.net_sales).toLocaleString()}</p>
                             </div>
                             <div className="p-5 bg-black/40 border border-white/5 rounded-2xl space-y-1">
-                                <p className="text-[7px] font-black uppercase tracking-widest text-zinc-600">Time Duration</p>
-                                <p className="text-2xl font-black font-outfit text-white font-outfit">{Math.floor(selectedShift.hours)}h {Math.round((selectedShift.hours % 1) * 60)}m</p>
+                                <p className="text-[7px] font-black uppercase tracking-widest text-zinc-600">Duration</p>
+                                <p className="text-2xl font-black font-outfit text-white">{Math.floor(selectedShift.hours)}h {Math.round((selectedShift.hours % 1) * 60)}m</p>
                             </div>
                         </div>
 
-                        {/* Calculation Steps */}
-                        <Card className="!p-8 bg-black border-white/5 rounded-[2rem] space-y-6">
+                        <Card className="!p-8 bg-black border-white/5 rounded-[2rem] space-y-5">
                             <div className="flex items-center gap-2 mb-2">
                                 <Info className="w-3.5 h-3.5 text-primary" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-white">Calculation Logic</span>
+                                <span className="text-[10px] font-black uppercase tracking-widest text-white">Calculation Breakdown</span>
                             </div>
-
-                            <div className="space-y-4">
+                            <div className="flex justify-between items-center">
+                                <p className="text-xs font-bold text-zinc-500">CC Tips</p>
+                                <p className="text-xs font-black text-white">${parseFloat(selectedShift.tips || 0).toFixed(2)}</p>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <p className="text-xs font-bold text-zinc-500">Cash Tips</p>
+                                <p className="text-xs font-black text-emerald-400">${parseFloat(selectedShift.computed_data?.cashTips || 0).toFixed(2)}</p>
+                            </div>
+                            {selectedShift.computed_data?.wageEarnings > 0 && (
                                 <div className="flex justify-between items-center">
-                                    <p className="text-xs font-bold text-zinc-500">Gross Tips (CC + Cash)</p>
-                                    <p className="text-xs font-black text-white">${(parseFloat(selectedShift.tips) + parseFloat(selectedShift.computed_data?.cashTips || 0)).toFixed(2)}</p>
+                                    <p className="text-xs font-bold text-zinc-500">Base Wage (${selectedShift.computed_data?.hourlyWage}/hr)</p>
+                                    <p className="text-xs font-black text-emerald-400">+${parseFloat(selectedShift.computed_data.wageEarnings).toFixed(2)}</p>
                                 </div>
-                                <div className="flex justify-between items-center">
-                                    <p className="text-xs font-bold text-zinc-500">Tip out ({((parseFloat(selectedShift.computed_data?.supportPool) / parseFloat(selectedShift.net_sales)) * 100).toFixed(1)}%)</p>
-                                    <p className="text-xs font-black text-red-500">-${parseFloat(selectedShift.computed_data?.supportPool || 0).toFixed(2)}</p>
-                                </div>
-                                <div className="flex justify-between items-center pt-2 border-t border-white/5">
-                                    <p className="text-xs font-black text-white uppercase tracking-tighter">Pre-Tax Earnings</p>
-                                    <p className="text-lg font-black text-white font-outfit">${(parseFloat(selectedShift.tips) + parseFloat(selectedShift.computed_data?.cashTips || 0) - parseFloat(selectedShift.computed_data?.supportPool || 0)).toFixed(2)}</p>
-                                </div>
-                                <div className="flex justify-between items-center">
-                                    <p className="text-xs font-bold text-zinc-500 italic">Est. 15% Tax Deduction</p>
-                                    <p className="text-xs font-black text-indigo-400">-${((parseFloat(selectedShift.tips) + parseFloat(selectedShift.computed_data?.cashTips || 0) - parseFloat(selectedShift.computed_data?.supportPool || 0)) * 0.15).toFixed(2)}</p>
-                                </div>
-                                <div className="flex justify-between items-center pt-4 border-t border-primary/20 bg-primary/5 p-4 rounded-xl">
-                                    <p className="text-sm font-black text-primary uppercase tracking-tighter">Post-Tax Takehome</p>
-                                    <p className="text-2xl font-black text-primary font-outfit">${((parseFloat(selectedShift.tips) + parseFloat(selectedShift.computed_data?.cashTips || 0) - parseFloat(selectedShift.computed_data?.supportPool || 0)) * 0.85).toFixed(2)}</p>
-                                </div>
+                            )}
+                            <div className="flex justify-between items-center">
+                                <p className="text-xs font-bold text-zinc-500">Tip Out</p>
+                                <p className="text-xs font-black text-red-500">-${parseFloat(selectedShift.computed_data?.supportPool || 0).toFixed(2)}</p>
+                            </div>
+                            <div className="flex justify-between items-center pt-2 border-t border-white/5">
+                                <p className="text-xs font-black text-white uppercase tracking-tighter">Pre-Tax</p>
+                                <p className="text-lg font-black text-white font-outfit">
+                                    ${((parseFloat(selectedShift.tips || 0) + parseFloat(selectedShift.computed_data?.cashTips || 0) + parseFloat(selectedShift.computed_data?.wageEarnings || 0)) - parseFloat(selectedShift.computed_data?.supportPool || 0)).toFixed(2)}
+                                </p>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <p className="text-xs font-bold text-zinc-500 italic">Est. 15% Tax</p>
+                                <p className="text-xs font-black text-indigo-400">
+                                    -${(((parseFloat(selectedShift.tips || 0) + parseFloat(selectedShift.computed_data?.cashTips || 0) + parseFloat(selectedShift.computed_data?.wageEarnings || 0)) - parseFloat(selectedShift.computed_data?.supportPool || 0)) * 0.15).toFixed(2)}
+                                </p>
+                            </div>
+                            <div className="flex justify-between items-center p-4 rounded-xl bg-primary/10 border border-primary/20">
+                                <p className="text-sm font-black text-primary uppercase tracking-tighter">Take-Home</p>
+                                <p className="text-2xl font-black text-primary font-outfit">
+                                    ${(((parseFloat(selectedShift.tips || 0) + parseFloat(selectedShift.computed_data?.cashTips || 0) + parseFloat(selectedShift.computed_data?.wageEarnings || 0)) - parseFloat(selectedShift.computed_data?.supportPool || 0)) * 0.85).toFixed(2)}
+                                </p>
                             </div>
                         </Card>
 
                         <div className="flex gap-4">
-                            <Button variant="secondary" onClick={() => setSelectedShiftId(null)} className="flex-1 py-4 text-xs font-black uppercase tracking-widest rounded-xl">Close Details</Button>
+                            <Button variant="secondary" onClick={() => setSelectedShiftId(null)} className="flex-1 py-4 text-xs font-black uppercase tracking-widest rounded-xl">Close</Button>
                             <Button variant="danger" onClick={() => { setSelectedShiftId(null); setDeleteModalKey(selectedShift.id); }} className="px-6 py-4 rounded-xl">
                                 <Trash2 className="w-4 h-4" />
                             </Button>
@@ -331,12 +425,8 @@ export default function Dashboard() {
                 )}
             </Modal>
 
-            {/* DELETE CONFIRMATION MODAL */}
-            <Modal
-                isOpen={!!deleteModalKey}
-                onClose={() => setDeleteModalKey(null)}
-                title="Purge Record?"
-            >
+            {/* DELETE MODAL */}
+            <Modal isOpen={!!deleteModalKey} onClose={() => setDeleteModalKey(null)} title="Purge Record?">
                 <div className="space-y-6">
                     <div className="flex items-center gap-4 p-4 bg-red-500/5 border border-red-500/10 rounded-2xl">
                         <AlertCircle className="w-8 h-8 text-red-500 shrink-0" />

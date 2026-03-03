@@ -5,8 +5,9 @@ import { Card, Button, Input, SectionTitle, GlassCard, Badge, Modal, cn } from '
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { History, Calendar, LayoutGrid, TrendingUp, ChevronRight, Clock, Trash2, AlertCircle, Info, Calculator, Wallet, ChevronDown } from 'lucide-react'
+import { History, Calendar, LayoutGrid, TrendingUp, ChevronRight, Clock, Trash2, AlertCircle, Info, Calculator, Wallet, ChevronDown, Trophy } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachWeekOfInterval, subMonths, isWithinInterval } from 'date-fns'
+import { calculateShiftGrade } from '@/lib/calculations'
 
 export default function HistoryPage() {
     const [loading, setLoading] = useState(true)
@@ -80,16 +81,25 @@ export default function HistoryPage() {
 
     // Weekly Stats Logic
     const weeklyStats = filteredEntries.reduce((acc, curr) => {
-        const tipOut = parseFloat(curr.computed_data?.supportPool || 0)
-        const cash = parseFloat(curr.computed_data?.cashTips || 0)
         const cc = parseFloat(curr.tips || 0)
-        const shiftNet = (cc + cash) - tipOut
+        const cash = parseFloat(curr.computed_data?.cashTips || 0)
+        const wage = parseFloat(curr.computed_data?.wageEarnings || 0)
+        const tipOut = parseFloat(curr.computed_data?.supportPool || 0)
+
+        // Cash bypassed taxes
+        const cashInHand = cash
+
+        // Paycheck logic
+        const checkGross = cc + wage - tipOut
+        const checkNet = checkGross * 0.85 // 15% Tax
+
+        const grossEarned = cc + cash + wage
 
         return {
             sales: acc.sales + parseFloat(curr.net_sales || 0),
-            tips: acc.tips + cc + cash,
+            tips: acc.tips + grossEarned,
             hours: acc.hours + parseFloat(curr.hours || 0),
-            takehome: acc.takehome + (shiftNet * 0.85) // 15% Tax
+            takehome: acc.takehome + checkNet + cashInHand
         }
     }, { sales: 0, tips: 0, hours: 0, takehome: 0 })
 
@@ -135,6 +145,60 @@ export default function HistoryPage() {
                 </div>
             </section>
 
+            {/* Personal Bests (All-Time) */}
+            {(() => {
+                const bests = entries.reduce((acc, curr) => {
+                    const sales = parseFloat(curr.net_sales || 0)
+                    const tips = parseFloat(curr.tips || 0) + parseFloat(curr.computed_data?.cashTips || 0) + parseFloat(curr.computed_data?.wageEarnings || 0)
+                    if (sales > acc.sales.amount) acc.sales = { amount: sales, date: curr.date }
+                    if (tips > acc.tips.amount) acc.tips = { amount: tips, date: curr.date }
+                    return acc
+                }, { sales: { amount: 0, date: '' }, tips: { amount: 0, date: '' } })
+
+                if (bests.sales.amount === 0) return null
+
+                return (
+                    <section className="space-y-4">
+                        <div className="flex items-center gap-2 px-1">
+                            <div className="w-1 h-3 bg-amber-500 rounded-full shadow-[0_0_10px_rgba(245,158,11,0.5)]"></div>
+                            <p className="text-[9px] font-black uppercase tracking-widest text-amber-500">Hall of Fame</p>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                            <Card className="!p-5 bg-zinc-900 border-amber-500/20 shadow-[0_8px_30px_rgba(245,158,11,0.05)] rounded-3xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-xl -mr-10 -mt-10 group-hover:bg-amber-500/20 transition-all"></div>
+                                <div className="relative z-10 space-y-4">
+                                    <div className="w-8 h-8 rounded-full bg-amber-500/10 flex items-center justify-center text-amber-500">
+                                        <Trophy className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-0.5">Max Net Sales</p>
+                                        <p className="text-2xl font-black font-outfit text-white tracking-tighter">${bests.sales.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                        <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mt-1">
+                                            {format(new Date(bests.sales.date + 'T12:00:00'), 'MMM d, yyyy')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </Card>
+                            <Card className="!p-5 bg-zinc-900 border-emerald-500/20 shadow-[0_8px_30px_rgba(16,185,129,0.05)] rounded-3xl relative overflow-hidden group">
+                                <div className="absolute top-0 right-0 w-24 h-24 bg-emerald-500/10 rounded-full blur-xl -mr-10 -mt-10 group-hover:bg-emerald-500/20 transition-all"></div>
+                                <div className="relative z-10 space-y-4">
+                                    <div className="w-8 h-8 rounded-full bg-emerald-500/10 flex items-center justify-center text-emerald-500">
+                                        <Wallet className="w-4 h-4" />
+                                    </div>
+                                    <div>
+                                        <p className="text-[8px] font-black text-zinc-500 uppercase tracking-widest mb-0.5">Max Tips + Wage</p>
+                                        <p className="text-2xl font-black font-outfit text-white tracking-tighter">${bests.tips.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                                        <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest mt-1">
+                                            {format(new Date(bests.tips.date + 'T12:00:00'), 'MMM d, yyyy')}
+                                        </p>
+                                    </div>
+                                </div>
+                            </Card>
+                        </div>
+                    </section>
+                )
+            })()}
+
             {/* Weekly Performance HUD */}
             <section className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
@@ -147,7 +211,7 @@ export default function HistoryPage() {
                         <p className="text-3xl font-black font-outfit text-white tracking-tighter">${weeklyStats.takehome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                     </div>
                     <div className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600">Total Tips</p>
+                        <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600">Tips + Wage</p>
                         <p className="text-3xl font-black font-outfit text-white tracking-tighter">${weeklyStats.tips.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
                     </div>
                     <div className="col-span-2 pt-6 mt-4 border-t border-white/5 grid grid-cols-2">
@@ -183,7 +247,21 @@ export default function HistoryPage() {
                                             <Calendar className="w-5 h-5" />
                                         </div>
                                         <div>
-                                            <p className="font-black text-white leading-none mb-2 capitalize tracking-tight text-lg">{shift.shift_type} Shift</p>
+                                            <div className="flex items-center gap-2 mb-1.5">
+                                                <p className="font-black text-white leading-none capitalize tracking-tight text-lg">{shift.shift_type} Shift</p>
+                                                {(() => {
+                                                    const grade = calculateShiftGrade(
+                                                        parseFloat(shift.net_sales || 0),
+                                                        parseFloat(shift.tips || 0) + parseFloat(shift.computed_data?.cashTips || 0)
+                                                    )
+                                                    if (grade.grade === '-') return null
+                                                    return (
+                                                        <span className={cn("text-[10px] font-black font-outfit px-1.5 py-0.5 rounded-md bg-black border border-white/5 shadow-inner", grade.color)}>
+                                                            {grade.grade}
+                                                        </span>
+                                                    )
+                                                })()}
+                                            </div>
                                             <p className="text-[10px] text-zinc-600 font-bold uppercase tracking-widest">
                                                 {format(new Date(shift.date + 'T12:00:00'), 'EEE, MMM d')} • {Math.floor(shift.hours)}h {Math.round((shift.hours % 1) * 60)}m
                                             </p>
@@ -226,54 +304,100 @@ export default function HistoryPage() {
                 onClose={() => setSelectedShiftId(null)}
                 title="Shift Intelligence"
             >
-                {selectedShift && (
-                    <div className="space-y-8">
-                        <div className="flex justify-between items-center">
-                            <div className="space-y-1">
-                                <p className="text-[8px] font-black uppercase tracking-widest text-primary">{format(new Date(selectedShift.date + 'T12:00:00'), 'EEEE, MMMM do')}</p>
-                                <h2 className="text-3xl font-black font-outfit text-white tracking-tighter capitalize">{selectedShift.shift_type} Session</h2>
+                {selectedShift && (() => {
+                    const ccTips = parseFloat(selectedShift.tips || 0)
+                    const cashTips = parseFloat(selectedShift.computed_data?.cashTips || 0)
+                    const wageEarnings = parseFloat(selectedShift.computed_data?.wageEarnings || 0)
+                    const supportDeduction = parseFloat(selectedShift.computed_data?.supportPool || 0)
+
+                    const grossEarned = ccTips + cashTips + wageEarnings
+
+                    // Breakdown
+                    const cashInHand = cashTips
+                    const preTaxCheck = ccTips + wageEarnings - supportDeduction
+                    const estTaxes = preTaxCheck * 0.15
+                    const estCheckAdd = preTaxCheck - estTaxes
+                    const totalTakehome = cashInHand + estCheckAdd
+
+                    return (
+                        <div className="space-y-8">
+                            <div className="flex justify-between items-center">
+                                <div className="space-y-1">
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-primary">{format(new Date(selectedShift.date + 'T12:00:00'), 'EEEE, MMMM do')}</p>
+                                    <h2 className="text-3xl font-black font-outfit text-white tracking-tighter capitalize">{selectedShift.shift_type} Session</h2>
+                                </div>
+                                <div className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center border border-white/5 shadow-inner">
+                                    <Calculator className="w-6 h-6 text-primary" />
+                                </div>
                             </div>
-                            <div className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center border border-white/5 shadow-inner">
-                                <Calculator className="w-6 h-6 text-primary" />
+
+                            <Card className="!p-8 bg-black border-white/5 rounded-[2rem] space-y-6 text-white font-outfit overflow-hidden relative">
+                                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+
+                                <div className="flex items-center gap-2 mb-2 relative z-10">
+                                    <Info className="w-3.5 h-3.5 text-primary" />
+                                    <span className="text-[10px] font-black uppercase tracking-widest text-white">Financial Breakdown</span>
+                                </div>
+
+                                <div className="space-y-4 relative z-10">
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-xs font-bold text-zinc-500">Credit Card Tips</p>
+                                        <p className="text-xs font-black">${ccTips.toFixed(2)}</p>
+                                    </div>
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-xs font-bold text-zinc-500">Wage Earnings</p>
+                                        <p className="text-xs font-black">${wageEarnings.toFixed(2)}</p>
+                                    </div>
+
+                                    <div className="flex justify-between items-center text-red-500">
+                                        <p className="text-xs font-bold opacity-80">Support Pool Deduction</p>
+                                        <p className="text-xs font-black">-${supportDeduction.toFixed(2)}</p>
+                                    </div>
+
+                                    <div className="h-px bg-white/5" />
+
+                                    <div className="flex justify-between items-center">
+                                        <p className="text-xs font-black uppercase tracking-tighter text-white">Pre-Tax Check</p>
+                                        <p className="text-sm font-black">${preTaxCheck.toFixed(2)}</p>
+                                    </div>
+                                    <div className="flex justify-between items-center text-indigo-400">
+                                        <p className="text-xs font-bold italic opacity-80">Est. 15% Taxes</p>
+                                        <p className="text-xs font-black">-${estTaxes.toFixed(2)}</p>
+                                    </div>
+
+                                    <div className="pt-3 pb-1 flex justify-between items-center">
+                                        <div className="space-y-0.5">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Est. Paycheck Add</p>
+                                        </div>
+                                        <p className="text-[15px] font-black font-outfit text-white">${estCheckAdd.toFixed(2)}</p>
+                                    </div>
+
+                                    <div className="h-px border-t border-dashed border-white/10" />
+
+                                    <div className="flex justify-between items-center">
+                                        <div className="space-y-0.5">
+                                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">Cash in Hand</p>
+                                            <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Kept separate, untaxed</p>
+                                        </div>
+                                        <p className="text-[15px] font-black font-outfit text-amber-400">${cashInHand.toFixed(2)}</p>
+                                    </div>
+
+                                    <div className="flex justify-between items-center pt-4 border-t border-emerald-500/20 bg-emerald-500/5 p-4 rounded-xl shadow-[inset_0_1px_0_0_rgba(16,185,129,0.1)] mt-4">
+                                        <div className="space-y-0.5">
+                                            <p className="text-sm font-black text-emerald-400 uppercase tracking-tighter">Total Takehome</p>
+                                            <p className="text-[8px] font-black text-emerald-600/60 uppercase tracking-widest">Check + Cash</p>
+                                        </div>
+                                        <p className="text-3xl font-black text-emerald-400 tracking-tighter">${totalTakehome.toFixed(2)}</p>
+                                    </div>
+                                </div>
+                            </Card>
+
+                            <div className="flex gap-4">
+                                <Button variant="secondary" onClick={() => setSelectedShiftId(null)} className="flex-1 py-4 text-xs font-black uppercase tracking-widest rounded-xl">Close Catalog</Button>
                             </div>
                         </div>
-
-                        <Card className="!p-8 bg-black border-white/5 rounded-[2rem] space-y-6 text-white font-outfit">
-                            <div className="flex items-center gap-2 mb-2">
-                                <Info className="w-3.5 h-3.5 text-primary" />
-                                <span className="text-[10px] font-black uppercase tracking-widest text-white">Financial Breakdown</span>
-                            </div>
-
-                            <div className="space-y-4">
-                                <div className="flex justify-between items-center">
-                                    <p className="text-xs font-bold text-zinc-500">Gross Tips</p>
-                                    <p className="text-xs font-black">${(parseFloat(selectedShift.tips) + parseFloat(selectedShift.computed_data?.cashTips || 0)).toFixed(2)}</p>
-                                </div>
-                                <div className="flex justify-between items-center text-red-500">
-                                    <p className="text-xs font-bold opacity-80">Tip out Deduction</p>
-                                    <p className="text-xs font-black">-${parseFloat(selectedShift.computed_data?.supportPool || 0).toFixed(2)}</p>
-                                </div>
-                                <div className="h-px bg-white/5" />
-                                <div className="flex justify-between items-center">
-                                    <p className="text-xs font-black uppercase tracking-tighter">Pre-Tax Shift Net</p>
-                                    <p className="text-lg font-black">${(parseFloat(selectedShift.tips) + parseFloat(selectedShift.computed_data?.cashTips || 0) - parseFloat(selectedShift.computed_data?.supportPool || 0)).toFixed(2)}</p>
-                                </div>
-                                <div className="flex justify-between items-center text-indigo-400">
-                                    <p className="text-xs font-bold italic opacity-80">Est. 15% Taxes</p>
-                                    <p className="text-xs font-black">-${((parseFloat(selectedShift.tips) + parseFloat(selectedShift.computed_data?.cashTips || 0) - parseFloat(selectedShift.computed_data?.supportPool || 0)) * 0.15).toFixed(2)}</p>
-                                </div>
-                                <div className="flex justify-between items-center pt-4 border-t border-primary/20 bg-primary/5 p-4 rounded-xl">
-                                    <p className="text-sm font-black text-primary uppercase tracking-tighter">Post-Tax Takehome</p>
-                                    <p className="text-2xl font-black text-primary">${((parseFloat(selectedShift.tips) + parseFloat(selectedShift.computed_data?.cashTips || 0) - parseFloat(selectedShift.computed_data?.supportPool || 0)) * 0.85).toFixed(2)}</p>
-                                </div>
-                            </div>
-                        </Card>
-
-                        <div className="flex gap-4">
-                            <Button variant="secondary" onClick={() => setSelectedShiftId(null)} className="flex-1 py-4 text-xs font-black uppercase tracking-widest rounded-xl">Close Catalog</Button>
-                        </div>
-                    </div>
-                )}
+                    )
+                })()}
             </Modal>
 
             {/* CONFIRMATION MODAL */}

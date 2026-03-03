@@ -12,7 +12,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         { label: 'Home', icon: Home, href: '/app' },
         { label: 'History', icon: History, href: '/app/history' },
         { label: 'New', icon: PlusSquare, href: '/app/new', center: true },
-        { label: 'Groups', icon: Users, href: '/app/groups' },
+        { label: 'Parties', icon: Users, href: '/app/groups' },
         { label: 'Settings', icon: Settings, href: '/app/settings' },
     ]
 
