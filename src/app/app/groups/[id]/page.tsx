@@ -114,11 +114,8 @@ export default function PartyDetails() {
     const [profileForm, setProfileForm] = useState<any>({
         display_name: '',
         avatar_url: '',
-        phone: '',
-        instagram: '',
         birthday: '',
         work_anniversary: '',
-        favorite_section: '',
         bio: '',
         share_to_leaderboard: true
     })
@@ -147,7 +144,7 @@ export default function PartyDetails() {
             const userIds = memberData.map((m: any) => m.user_id)
             const { data: profileData } = await supabase
                 .from('profiles')
-                .select('id, avatar_url, share_to_leaderboard, phone, instagram, birthday, work_anniversary, favorite_section, bio')
+                .select('id, avatar_url, share_to_leaderboard, birthday, work_anniversary, bio')
                 .in('id', userIds)
 
             const enrichedMembers = memberData.map((m: any) => ({
@@ -273,11 +270,8 @@ export default function PartyDetails() {
                 setProfileForm({
                     display_name: myMember.display_name || '',
                     avatar_url: myMember.profiles.avatar_url || '',
-                    phone: myMember.profiles.phone || '',
-                    instagram: myMember.profiles.instagram || '',
                     birthday: myMember.profiles.birthday || '',
                     work_anniversary: myMember.profiles.work_anniversary || '',
-                    favorite_section: myMember.profiles.favorite_section || '',
                     bio: myMember.profiles.bio || '',
                     share_to_leaderboard: myMember.profiles.share_to_leaderboard ?? true
                 })
@@ -293,11 +287,8 @@ export default function PartyDetails() {
                 .from('profiles')
                 .update({
                     avatar_url: profileForm.avatar_url,
-                    phone: profileForm.phone,
-                    instagram: profileForm.instagram,
                     birthday: profileForm.birthday,
                     work_anniversary: profileForm.work_anniversary,
-                    favorite_section: profileForm.favorite_section,
                     bio: profileForm.bio,
                     share_to_leaderboard: profileForm.share_to_leaderboard
                 })
@@ -550,7 +541,7 @@ export default function PartyDetails() {
                         { id: 'leaderboard', icon: Trophy, label: 'Stats' },
                         { id: 'feed', icon: BarChart3, label: 'Feed' },
                         { id: 'sportsbook', icon: () => <span className="text-base leading-none mb-1">🎰</span>, label: 'Bets' },
-                        { id: 'settings', icon: Settings, label: 'Settings' },
+                        { id: 'settings', icon: Settings, label: 'Manage' },
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -686,6 +677,14 @@ export default function PartyDetails() {
                 {/* ── FEED TAB ── */}
                 {activeTab === 'feed' && (
                     <div className="fixed inset-0 z-[100] bg-black flex flex-col h-[100dvh] w-full max-w-md mx-auto">
+                        {/* Transparent overlay to dismiss reaction popups by tapping anywhere */}
+                        {activeReactionPopup && (
+                            <div
+                                className="absolute inset-0 z-40"
+                                onClick={() => setActiveReactionPopup(null)}
+                                onTouchStart={() => setActiveReactionPopup(null)}
+                            />
+                        )}
                         {/* Feed Header */}
                         <div className="shrink-0 flex items-center justify-between p-4 border-b border-white/5 bg-zinc-900/40 backdrop-blur-xl">
                             <button
@@ -960,128 +959,14 @@ export default function PartyDetails() {
                     </div>
                 )}
 
-                {/* ── SETTINGS TAB (Everyone) ── */}
+                {/* ── SETTINGS TAB ── */}
                 {activeTab === 'settings' && (
                     <div className="space-y-6 animate-in pb-12 px-1">
                         <div className="px-1 space-y-1">
-                            <h2 className="font-black font-outfit text-2xl text-white tracking-tighter">Settings.</h2>
-                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 opacity-80">Personalize your profile</p>
+                            <h2 className="font-black font-outfit text-2xl text-white tracking-tighter">Manage Party.</h2>
+                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600 opacity-80">Admin Controls</p>
                         </div>
 
-                        {/* My Profile Card */}
-                        <Card className="!p-6 bg-zinc-900/40 border-white/5 rounded-[2.5rem] space-y-6 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 p-8 opacity-10 pointer-events-none">
-                                <User className="w-24 h-24 text-primary" />
-                            </div>
-
-                            <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Identity Card</p>
-
-                            <div className="space-y-4">
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Callsign / Nickname</label>
-                                        <input
-                                            value={profileForm.display_name}
-                                            onChange={e => setProfileForm({ ...profileForm, display_name: e.target.value })}
-                                            className="w-full bg-black border border-white/5 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-primary/50 transition-all shadow-inner"
-                                            placeholder="Your name"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Phone Number</label>
-                                        <input
-                                            value={profileForm.phone}
-                                            onChange={e => setProfileForm({ ...profileForm, phone: e.target.value })}
-                                            className="w-full bg-black border border-white/5 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-primary/50 transition-all shadow-inner"
-                                            placeholder="e.g. (999) 000-0000"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Instagram (@)</label>
-                                        <input
-                                            value={profileForm.instagram}
-                                            onChange={e => setProfileForm({ ...profileForm, instagram: e.target.value })}
-                                            className="w-full bg-black border border-white/5 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-primary/50 transition-all shadow-inner"
-                                            placeholder="yourhandle"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Birthday</label>
-                                        <input
-                                            value={profileForm.birthday}
-                                            onChange={e => setProfileForm({ ...profileForm, birthday: e.target.value })}
-                                            className="w-full bg-black border border-white/5 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-primary/50 transition-all shadow-inner"
-                                            placeholder="MM/DD"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-2 gap-4">
-                                    <div className="space-y-1.5">
-                                        <label className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Serving Since (Year)</label>
-                                        <input
-                                            value={profileForm.work_anniversary}
-                                            onChange={e => setProfileForm({ ...profileForm, work_anniversary: e.target.value })}
-                                            className="w-full bg-black border border-white/5 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-primary/50 transition-all shadow-inner"
-                                            placeholder="e.g. 2022"
-                                        />
-                                    </div>
-                                    <div className="space-y-1.5">
-                                        <label className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Favorite Section</label>
-                                        <input
-                                            value={profileForm.favorite_section}
-                                            onChange={e => setProfileForm({ ...profileForm, favorite_section: e.target.value })}
-                                            className="w-full bg-black border border-white/5 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-primary/50 transition-all shadow-inner"
-                                            placeholder="e.g. VIP, Bar, Patio"
-                                        />
-                                    </div>
-                                </div>
-
-                                <div className="space-y-1.5">
-                                    <label className="text-[8px] font-black uppercase tracking-[0.2em] text-zinc-500 ml-1">Bio / Intel Dossier</label>
-                                    <textarea
-                                        value={profileForm.bio}
-                                        onChange={e => setProfileForm({ ...profileForm, bio: e.target.value })}
-                                        rows={2}
-                                        className="w-full bg-black border border-white/5 rounded-2xl px-4 py-3 text-xs font-bold text-white outline-none focus:border-primary/50 transition-all shadow-inner resize-none appearance-none"
-                                        placeholder="Brief description of your service style..."
-                                    />
-                                </div>
-
-                                <div className="flex items-center justify-between p-4 bg-black rounded-2xl border border-white/5 shadow-inner">
-                                    <div className="space-y-0.5">
-                                        <p className="text-[10px] font-black text-white">Share Stats on Leaderboard</p>
-                                        <p className="text-[8px] font-bold text-zinc-500 uppercase tracking-widest italic leading-none">Private hides all Intel for this Party</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setProfileForm({ ...profileForm, share_to_leaderboard: !profileForm.share_to_leaderboard })}
-                                        className={cn(
-                                            "w-10 h-5 rounded-full p-0.5 transition-all duration-300",
-                                            profileForm.share_to_leaderboard ? "bg-primary" : "bg-zinc-800"
-                                        )}
-                                    >
-                                        <div className={cn(
-                                            "w-4 h-4 rounded-full bg-white transition-all transform",
-                                            profileForm.share_to_leaderboard ? "translate-x-5" : "translate-x-0"
-                                        )} />
-                                    </button>
-                                </div>
-
-                                <Button
-                                    onClick={handleSaveProfile}
-                                    disabled={savingProfile}
-                                    className="w-full py-6 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] shadow-xl group overflow-hidden relative"
-                                >
-                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000" />
-                                    {savingProfile ? 'Updating Dossier...' : 'Save Profile Changes'}
-                                </Button>
-                            </div>
-                        </Card>
-
-                        {/* Admin Sections */}
                         {isAdmin && (
                             <div className="space-y-6">
                                 <div className="px-1 border-t border-white/5 pt-6 space-y-1">
@@ -1178,6 +1063,7 @@ export default function PartyDetails() {
                 )}
             </div>
 
+
             {/* ── PLAYER INTEL MODAL ── */}
             <Modal isOpen={!!selectedUserIntel} onClose={() => setSelectedUserIntel(null)} title={selectedUserIntel?.isPrivate ? 'Stats Hidden' : `${selectedUserIntel?.name?.split(' ')[0]}'s Portal`}>
                 <div className="space-y-6 overflow-y-auto max-h-[65vh] pr-2 pb-4 scroll-smooth">
@@ -1233,46 +1119,20 @@ export default function PartyDetails() {
                                             <h3 className="font-black font-outfit text-2xl tracking-tighter text-white">
                                                 {selectedUserIntel?.name}
                                             </h3>
-                                            {selectedUserIntel?.profile?.favorite_section && (
-                                                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mt-0.5">
-                                                    {selectedUserIntel.profile.favorite_section} Area
-                                                </p>
-                                            )}
+                                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mt-0.5">
+                                                Party Member Dossier
+                                            </p>
                                         </div>
 
                                         {/* Mini Profile Stats Grid */}
                                         <div className="grid grid-cols-2 gap-2 mt-2 w-full relative z-10">
-                                            <div className="bg-black/50 p-2.5 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">Phone</span>
-                                                {selectedUserIntel?.profile?.phone ? (
-                                                    <a href={`tel:${selectedUserIntel.profile.phone}`} className="text-[10px] font-black tracking-widest text-white hover:text-primary transition-colors">{selectedUserIntel.profile.phone}</a>
-                                                ) : (
-                                                    <span className="text-[10px] font-black tracking-widest text-white">Private</span>
-                                                )}
+                                            <div className="bg-black/50 p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1">Birthday</span>
+                                                <span className="text-[10px] font-black tracking-widest text-white">🎂 {selectedUserIntel?.profile?.birthday || 'Private'}</span>
                                             </div>
-                                            <div className="bg-black/50 p-2.5 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">Instagram</span>
-                                                {selectedUserIntel?.profile?.instagram ? (
-                                                    <a
-                                                        href={`https://instagram.com/${selectedUserIntel.profile.instagram.replace('@', '')}`}
-                                                        target="_blank"
-                                                        rel="noopener noreferrer"
-                                                        className="text-[10px] font-black tracking-widest text-white hover:text-primary transition-colors flex items-center gap-1"
-                                                    >
-                                                        <Instagram className="w-2 h-2" />
-                                                        @{selectedUserIntel.profile.instagram.replace('@', '')}
-                                                    </a>
-                                                ) : (
-                                                    <span className="text-[10px] font-black tracking-widest text-white">n/a</span>
-                                                )}
-                                            </div>
-                                            <div className="bg-black/50 p-2.5 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">Birthday</span>
-                                                <span className="text-[10px] font-black tracking-widest text-white">🎂 {selectedUserIntel?.profile?.birthday || 'n/a'}</span>
-                                            </div>
-                                            <div className="bg-black/50 p-2.5 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-0.5">Serving Since</span>
-                                                <span className="text-[10px] font-black tracking-widest text-white">{selectedUserIntel?.profile?.work_anniversary || 'n/a'}</span>
+                                            <div className="bg-black/50 p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
+                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1">Serving Since</span>
+                                                <span className="text-[10px] font-black tracking-widest text-white">{selectedUserIntel?.profile?.work_anniversary || 'Private'}</span>
                                             </div>
                                         </div>
 
@@ -1378,6 +1238,6 @@ export default function PartyDetails() {
                     )}
                 </div>
             </Modal>
-        </div >
+        </div>
     )
 }

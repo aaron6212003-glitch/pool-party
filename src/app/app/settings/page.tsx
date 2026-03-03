@@ -20,6 +20,9 @@ export default function SettingsPage() {
     const [adminUnlocked, setAdminUnlocked] = useState(false)
     const [adminPin, setAdminPin] = useState('')
     const [pinError, setPinError] = useState(false)
+    const [birthday, setBirthday] = useState('')
+    const [workAnniversary, setWorkAnniversary] = useState('')
+    const [bio, setBio] = useState('')
     const fileInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
     const supabase = createClient()
@@ -35,11 +38,14 @@ export default function SettingsPage() {
             // Load avatar_url from profiles table (real source of truth, not JWT)
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('avatar_url, share_to_leaderboard')
+                .select('avatar_url, share_to_leaderboard, birthday, work_anniversary, bio')
                 .eq('id', user.id)
                 .single()
             if (profile) {
                 setNewAvatar(profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`)
+                setBirthday(profile.birthday || '')
+                setWorkAnniversary(profile.work_anniversary || '')
+                setBio(profile.bio || '')
                 if (profile.share_to_leaderboard !== null) {
                     setShareToLeaderboard(profile.share_to_leaderboard)
                 }
@@ -69,7 +75,10 @@ export default function SettingsPage() {
                 id: user.id,
                 email: user.email,
                 avatar_url: newAvatar,
-                share_to_leaderboard: shareToLeaderboard
+                share_to_leaderboard: shareToLeaderboard,
+                birthday,
+                work_anniversary: workAnniversary,
+                bio
             })
             if (profileErr) { console.error('Profile upsert error:', profileErr); throw profileErr }
 
@@ -142,7 +151,10 @@ export default function SettingsPage() {
             const { error: profileErr } = await supabase.from('profiles').upsert({
                 id: user.id,
                 email: user.email,
-                avatar_url: finalUrl
+                avatar_url: finalUrl,
+                birthday,
+                work_anniversary: workAnniversary,
+                bio
             })
             if (profileErr) throw profileErr
 
@@ -263,10 +275,11 @@ export default function SettingsPage() {
                         </button>
                     </div>
 
-                    <div className="space-y-1.5 relative z-10">
+                    <div className="space-y-1.5 relative z-10 flex-1">
                         <h3 className="text-2xl font-black font-outfit text-white tracking-tighter">{newName || user?.user_metadata?.full_name || 'Server'}</h3>
                         <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">{user?.email}</p>
-                        <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black tracking-widest px-3 py-1 mt-1">🍽️ Server</Badge>
+                        {bio && <p className="text-[10px] text-zinc-400 font-medium italic line-clamp-2 max-w-[200px]">"{bio}"</p>}
+                        <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black tracking-widest px-3 py-1 mt-1 inline-block">🍽️ Server</Badge>
                     </div>
                 </Card>
             </section>
@@ -453,6 +466,34 @@ export default function SettingsPage() {
                                         placeholder="Aaron Stephens"
                                         className="bg-black text-lg py-5"
                                     />
+
+                                    <div className="grid grid-cols-2 gap-4">
+                                        <Input
+                                            label="Birthday"
+                                            value={birthday}
+                                            onChange={(e) => setBirthday(e.target.value)}
+                                            placeholder="Day Month Year"
+                                            className="bg-black text-xs"
+                                        />
+                                        <Input
+                                            label="Serving Since"
+                                            value={workAnniversary}
+                                            onChange={(e) => setWorkAnniversary(e.target.value)}
+                                            placeholder="Day Month Year"
+                                            className="bg-black text-xs"
+                                        />
+                                    </div>
+
+                                    <div className="space-y-1.5">
+                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Short Bio</label>
+                                        <textarea
+                                            value={bio}
+                                            onChange={(e) => setBio(e.target.value)}
+                                            placeholder="Brief description of your service style..."
+                                            rows={3}
+                                            className="w-full bg-black border border-white/10 rounded-2xl p-4 text-white font-black font-outfit text-base placeholder:text-zinc-600 focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all resize-none"
+                                        />
+                                    </div>
 
                                     <div className="pt-2">
                                         <Button type="submit" className="w-full py-6 text-xl rounded-2xl shadow-2xl shadow-primary/20" disabled={loading || uploading}>
