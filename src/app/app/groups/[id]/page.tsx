@@ -5,7 +5,7 @@ import { Card, Button, Modal, Badge, cn } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart } from 'lucide-react'
+import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart, Image as ImageIcon, Film, Camera, Search, Loader2 } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
 import SportsbookTab from '@/components/SportsbookTab'
@@ -16,62 +16,64 @@ const ACHIEVEMENTS = [
     {
         id: 'whale_hunter',
         label: 'Whale Hunter',
-        description: 'Logged a single shift with $500+ in net sales.',
+        description: 'Logged a single shift with $2,500+ in net sales.',
         icon: '🏹',
-        requirement: 'Sales > $500',
+        requirement: 'Sales > $2,500',
         color: 'from-blue-500 to-cyan-400'
     },
     {
         id: 'tip_king',
         label: 'Tip Monarch',
-        description: 'Hit a 25% tip average on a single shift.',
-        icon: '👑',
-        requirement: 'Tips > 25%',
+        description: 'Cleared $500 in tips on a single shift.',
+        icon: '💰',
+        requirement: 'Tips > $500',
         color: 'from-yellow-400 to-amber-600'
+    },
+    {
+        id: 'marathoner',
+        label: 'Marathoner',
+        description: 'Logged a single shift over 10 hours long.',
+        icon: '👟',
+        requirement: 'Shift > 10 Hours',
+        color: 'from-emerald-400 to-teal-600'
     },
     {
         id: 'on_fire',
         label: 'On Fire',
-        description: 'Logged 3+ shifts in a single week.',
+        description: 'Logged 5+ shifts in a single week.',
         icon: '🔥',
-        requirement: '3+ Shifts/Week',
+        requirement: '5+ Shifts/Week',
         color: 'from-orange-500 to-red-600'
     },
     {
-        id: 'night_owl',
-        label: 'Night Owl',
-        description: 'Log 5+ late-night shifts in a month.',
-        icon: '🦉',
-        requirement: '5+ Late Shifts',
-        color: 'from-indigo-600 to-purple-800'
-    },
-    {
-        id: 'consistent',
-        label: 'Consistent',
-        description: 'Logged 5 shifts in total.',
-        icon: '💎',
-        requirement: '5 Total Shifts',
-        color: 'from-emerald-400 to-teal-600'
-    },
-    {
-        id: 'clutch',
-        label: 'Clutch Player',
-        description: 'Logged a high-sales weekend shift.',
+        id: 'weekend_warrior',
+        label: 'Weekend Warrior',
+        description: 'Logged the most total hours for Friday, Saturday, and Sunday of the current week.',
         icon: '⚡',
-        requirement: 'Sat/Sun $400+',
+        requirement: 'Most Fri-Sun Hours',
         color: 'from-pink-500 to-rose-600'
+    },
+    {
+        id: 'legendary',
+        label: 'Legendary',
+        description: 'Logged 50 shifts in total.',
+        icon: '💎',
+        requirement: '50 Total Shifts',
+        color: 'from-indigo-600 to-purple-800'
     }
 ]
 
 // ─── Leaderboard Item ────────────────────────────────────────────────────────
-function LeaderboardItem({ name, value, rank, type, avatar, isAdmin: itemIsAdmin, isPrivate, onClick }: {
+function LeaderboardItem({ name, value, rank, type, avatar, userId, isAdmin: itemIsAdmin, isPrivate, medals, onClick }: {
     name: string
     value: string
     rank: number
     type: string
     avatar?: string
+    userId?: string
     isAdmin?: boolean
     isPrivate?: boolean
+    medals?: string[]
     onClick?: () => void
 }) {
     const isTopThree = rank <= 3 && !isPrivate
@@ -103,13 +105,26 @@ function LeaderboardItem({ name, value, rank, type, avatar, isAdmin: itemIsAdmin
                     <div className="w-10 h-10 rounded-full bg-black overflow-hidden ring-2 ring-primary/5 shrink-0">
                         {isPrivate
                             ? <div className="w-full h-full flex items-center justify-center bg-zinc-900"><EyeOff className="w-4 h-4 text-zinc-700" /></div>
-                            : <img src={avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${name}`} alt="Avatar" className="w-full h-full object-cover" />
+                            : <img src={avatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${userId || name}`} alt="Avatar" className="w-full h-full object-cover" />
                         }
                     </div>
                     <div>
                         <div className="flex items-center gap-1.5">
                             <p className="font-black font-outfit text-sm tracking-tight text-white">{name}</p>
                             {itemIsAdmin && <Crown className="w-3.5 h-3.5 text-yellow-500 fill-yellow-500 shrink-0" />}
+                            {medals && medals.length > 0 && (
+                                <div className="flex items-center gap-0.5 ml-1">
+                                    {medals.slice(0, 3).map((m, idx) => {
+                                        const ach = ACHIEVEMENTS.find(a => a.id === m);
+                                        return (
+                                            <span key={idx} className="text-[10px]" title={ach?.label}>
+                                                {ach?.icon}
+                                            </span>
+                                        );
+                                    })}
+                                    {medals.length > 3 && <span className="text-[8px] text-zinc-500 font-black">+{medals.length - 3}</span>}
+                                </div>
+                            )}
                         </div>
                         <p className="text-[9px] uppercase font-black text-zinc-600 tracking-widest opacity-60">
                             {isPrivate ? 'Stats private' : type}
@@ -151,9 +166,8 @@ export default function PartyDetails() {
     const [currentUserId, setCurrentUserId] = useState<string | null>(null)
     const [kickingId, setKickingId] = useState<string | null>(null)
     const [userAchievements, setUserAchievements] = useState<string[]>([])
-    const [showPollCreator, setShowPollCreator] = useState(false)
-    const [pollQuestion, setPollQuestion] = useState('')
-    const [pollOptions, setPollOptions] = useState(['', ''])
+    const [groupAchievements, setGroupAchievements] = useState<Record<string, string[]>>({})
+    const [weekendWarriorId, setWeekendWarriorId] = useState<string | null>(null)
     const [weekOffset, setWeekOffset] = useState(0)
     const [timeframe, setTimeframe] = useState<'week' | 'all-time'>('week')
     const [selectedUserIntel, setSelectedUserIntel] = useState<any>(null)
@@ -176,6 +190,14 @@ export default function PartyDetails() {
         share_to_leaderboard: true
     })
     const [savingProfile, setSavingProfile] = useState(false)
+    const [hasUnreadFeed, setHasUnreadFeed] = useState(false)
+    const [showGiphyPicker, setShowGiphyPicker] = useState(false)
+    const [giphySearch, setGiphySearch] = useState('')
+    const [giphyResults, setGiphyResults] = useState<any[]>([])
+    const [giphyLoading, setGiphyLoading] = useState(false)
+    const [uploadingMedia, setUploadingMedia] = useState(false)
+    const [pendingMedia, setPendingMedia] = useState<{ url: string, type: 'image' | 'gif' } | null>(null)
+    const fileInputRef = useRef<HTMLInputElement>(null)
 
     const selectedWeekStart = startOfWeek(subWeeks(new Date(), -weekOffset), { weekStartsOn: 1 })
     const selectedWeekEnd = endOfWeek(subWeeks(new Date(), -weekOffset), { weekStartsOn: 1 })
@@ -210,22 +232,68 @@ export default function PartyDetails() {
 
             setMembers(enrichedMembers)
 
-            // Fetch Achievements for current user
-            const { data: achievementData } = await supabase
+            // Fetch ALL Achievements for the group
+            const { data: allAchievements } = await supabase
                 .from('user_achievements')
-                .select('achievement_type')
-                .eq('user_id', user.id)
+                .select('user_id, achievement_type')
                 .eq('group_id', id)
-            if (achievementData) {
-                setUserAchievements(achievementData.map((a: any) => a.achievement_type))
+
+            if (allAchievements) {
+                const map: Record<string, string[]> = {}
+                allAchievements.forEach((a: any) => {
+                    if (!map[a.user_id]) map[a.user_id] = []
+                    map[a.user_id].push(a.achievement_type)
+                })
+                setGroupAchievements(map)
+                setUserAchievements(map[user.id] || [])
             }
         } else {
             setMembers([])
         }
 
+        // Check for unread feed items for THIS group
+        const lastRead = localStorage.getItem(`percoco_last_read_${id}`) || new Date(0).toISOString()
+        const { count } = await supabase
+            .from('party_feed')
+            .select('*', { count: 'exact', head: true })
+            .eq('group_id', id)
+            .gt('created_at', lastRead)
+
+        setHasUnreadFeed((count || 0) > 0)
         setLoading(false)
         setRefreshing(false)
     }, [id, supabase, router])
+
+    // Subscription for new feed items to show the dot
+    useEffect(() => {
+        const channel = supabase.channel(`feed-updates-${id}`)
+            .on('postgres_changes', {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'party_feed',
+                filter: `group_id=eq.${id}`
+            }, (payload: any) => {
+                if (activeTab !== 'feed') {
+                    setHasUnreadFeed(true)
+                }
+            })
+            .subscribe()
+
+        return () => {
+            supabase.removeChannel(channel)
+        }
+    }, [id, activeTab, supabase])
+
+    // Clear notifications when viewing feed
+    useEffect(() => {
+        if (activeTab === 'feed') {
+            const now = new Date().toISOString()
+            localStorage.setItem(`percoco_last_read_${id}`, now)
+            localStorage.setItem('percoco_last_read_all', now)
+            setHasUnreadFeed(false)
+            window.dispatchEvent(new Event('percoco_feed_read'))
+        }
+    }, [activeTab, id])
 
     const fetchShiftsForWeek = useCallback(async () => {
         let query = supabase
@@ -326,6 +394,25 @@ export default function PartyDetails() {
             if (!a.isPrivate && b.isPrivate) return -1
             return sortMetric === 'sales' ? b.sales - a.sales : b.tips - a.tips
         })
+        // Calculate Weekend Warrior (Most hours Fri-Sun)
+        let maxHours = 0
+        let currentWarriorId = null
+        members.forEach(m => {
+            const userShifts = rawShifts.filter(s => s.user_id === m.user_id)
+            const userWeekendShifts = userShifts.filter(s => {
+                const d = new Date(s.date).getDay()
+                return d === 5 || d === 6 || d === 0 // Fri, Sat, Sun
+            })
+            const totalHours = userWeekendShifts.reduce((acc, s) => acc + (parseFloat(s.duration) || 0), 0)
+            if (totalHours > 0 && totalHours >= maxHours) {
+                // If it's a tie, the more recent one or just first-come?
+                // Let's say last person to hit the top hours takes it
+                maxHours = totalHours
+                currentWarriorId = m.user_id
+            }
+        })
+        setWeekendWarriorId(currentWarriorId)
+
         setLeaderboard(board)
     }, [rawShifts, members, sortMetric, group])
 
@@ -501,9 +588,14 @@ export default function PartyDetails() {
         }
     }
 
-    const handlePostChat = async (e: React.FormEvent) => {
-        e.preventDefault()
-        if (!chatInput.trim() || !currentUserId) return
+    const handlePostChat = async (e?: React.FormEvent) => {
+        if (e) e.preventDefault()
+
+        const mediaUrl = pendingMedia?.url
+        const mediaType = pendingMedia?.type
+
+        if (!chatInput.trim() && !mediaUrl) return
+        if (!currentUserId) return
 
         setPostingChat(true)
         const tempId = crypto.randomUUID()
@@ -513,72 +605,89 @@ export default function PartyDetails() {
             user_id: currentUserId,
             event_type: 'chat' as const,
             content: chatInput.trim(),
-            metadata: {},
+            metadata: {
+                ...(mediaUrl ? { [mediaType === 'gif' ? 'gif_url' : 'image_url']: mediaUrl } : {})
+            },
             is_anonymous: isAnonymousPost
         }
 
-        console.log("Sending chat...", payload)
-
         // Optimistic UI update
-        const tempInput = chatInput
-        setChatInput('')
         const userProfile = members.find(m => m.user_id === currentUserId)?.profiles
-
         setFeedItems(prev => [{
             ...payload,
             created_at: new Date().toISOString(),
             profiles: userProfile
         }, ...prev])
 
+        setChatInput('')
+        setPendingMedia(null)
+
         const { error } = await supabase.from('party_feed').insert(payload)
         setPostingChat(false)
         if (error) {
-            console.error("Supabase Chat Error:", error)
-            toast.error(error.message || "Failed to post message")
-            // Revert optimistic update
+            toast.error("Failed to post message")
             setFeedItems(prev => prev.filter(i => i.id !== tempId))
         }
     }
 
-    const handlePollSubmit = async () => {
-        if (!pollQuestion.trim() || pollOptions.some(o => !o.trim())) return
+    const searchGiphy = useCallback(async (query: string) => {
+        setGiphyLoading(true)
         try {
-            const { error } = await supabase.from('party_feed').insert({
-                group_id: id as string,
-                user_id: currentUserId,
-                event_type: 'poll',
-                content: `Command Poll: ${pollQuestion}`,
-                metadata: {
-                    type: 'poll',
-                    question: pollQuestion,
-                    options: pollOptions,
-                    voters: {}
-                }
-            })
-            if (error) throw error
-            setPollQuestion('')
-            setPollOptions(['', ''])
-            setShowPollCreator(false)
-        } catch (e: any) {
-            toast.error(e.message)
+            const res = await fetch(`/api/giphy?q=${encodeURIComponent(query)}`)
+            if (!res.ok) throw new Error('Proxy failed')
+            const { success, results } = await res.json()
+            if (success && results.length > 0) {
+                setGiphyResults(results)
+            } else {
+                setGiphyResults([])
+                if (!success) toast.error("Meme connection blocked. Refreshing might help.")
+            }
+        } catch (error) {
+            console.error('GIF Global Error:', error)
+            toast.error("Meme connection error.")
+        } finally {
+            setGiphyLoading(false)
+        }
+    }, [])
+
+    useEffect(() => {
+        if (!showGiphyPicker) return
+        const timeoutId = setTimeout(() => {
+            searchGiphy(giphySearch)
+        }, 300)
+        return () => clearTimeout(timeoutId)
+    }, [giphySearch, showGiphyPicker, searchGiphy])
+
+    const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file || !currentUserId) return
+
+        setUploadingMedia(true)
+        try {
+            const fileExt = file.name.split('.').pop()
+            const fileName = `${Math.random().toString(36).substring(2)}-${Date.now()}.${fileExt}`
+            const filePath = `${currentUserId}/${fileName}`
+
+            const { error: uploadError } = await supabase.storage
+                .from('feed_media')
+                .upload(filePath, file)
+
+            if (uploadError) throw uploadError
+
+            const { data: { publicUrl } } = supabase.storage
+                .from('feed_media')
+                .getPublicUrl(filePath)
+
+            setPendingMedia({ url: publicUrl, type: 'image' })
+            toast.success("Photo ready!")
+        } catch (error: any) {
+            toast.error(error.message || "Failed to upload photo")
+        } finally {
+            setUploadingMedia(false)
+            if (fileInputRef.current) fileInputRef.current.value = ''
         }
     }
 
-    const handleVote = async (itemId: string, optionIndex: number) => {
-        if (!currentUserId) return
-        const item = feedItems.find(i => i.id === itemId)
-        if (!item) return
-
-        const currentVoters = item.metadata?.voters || {}
-        const newVoters = { ...currentVoters, [currentUserId]: optionIndex }
-
-        await supabase
-            .from('party_feed')
-            .update({ metadata: { ...item.metadata, voters: newVoters } })
-            .eq('id', itemId)
-
-        if (typeof window !== 'undefined' && navigator.vibrate) navigator.vibrate(10)
-    }
 
     if (loading || !group) {
         return (
@@ -623,7 +732,14 @@ export default function PartyDetails() {
                             {members.slice(0, 5).map((m, i) => (
                                 <div key={i} className="inline-block h-8 w-8 rounded-full ring-2 ring-black bg-zinc-900 overflow-hidden relative group">
                                     <div className="absolute inset-0 bg-primary/20 blur-sm opacity-0 group-hover:opacity-100 transition-opacity" />
-                                    <img src={(m.profiles as any)?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.display_name}`} alt="member" className="w-full h-full object-cover relative z-10" />
+                                    <img
+                                        src={(m.profiles as any)?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_id}`}
+                                        alt="member"
+                                        className="w-full h-full object-cover relative z-10"
+                                        onError={(e) => {
+                                            (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${m.user_id}`
+                                        }}
+                                    />
                                 </div>
                             ))}
                         </div>
@@ -642,10 +758,10 @@ export default function PartyDetails() {
                 <div className="p-1.5 flex gap-1.5 bg-zinc-900/90 backdrop-blur-2xl border border-white/5 rounded-3xl shadow-2xl">
                     {[
                         { id: 'leaderboard', icon: Trophy, label: 'Stats' },
-                        { id: 'achievements', icon: Medal, label: 'Medals' },
                         { id: 'feed', icon: BarChart3, label: 'Feed' },
                         { id: 'sportsbook', icon: () => <span className="text-base leading-none mb-1">🎰</span>, label: 'Bets' },
                         { id: 'settings', icon: Settings, label: 'Manage' },
+                        { id: 'achievements', icon: Medal, label: 'Medals' },
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -658,13 +774,18 @@ export default function PartyDetails() {
                                 setActiveTab(tab.id)
                             }}
                             className={cn(
-                                'flex-1 py-3 px-2 rounded-2xl transition-all flex flex-col items-center justify-center font-outfit',
+                                'flex-1 py-3 px-2 rounded-2xl transition-all flex flex-col items-center justify-center font-outfit relative',
                                 activeTab === tab.id ? 'bg-primary text-white shadow-lg shadow-primary/20' : 'text-zinc-600 hover:text-zinc-400'
                             )}
                         >
-                            {tab.id === 'sportsbook'
-                                ? <span className="text-base leading-none mb-1">🎰</span>
-                                : <tab.icon className="w-4 h-4 mb-1" />}
+                            <div className="relative">
+                                {tab.id === 'sportsbook'
+                                    ? <span className="text-base leading-none mb-1">🎰</span>
+                                    : <tab.icon className="w-4 h-4 mb-1" />}
+                                {tab.id === 'feed' && hasUnreadFeed && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-zinc-900 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                                )}
+                            </div>
                             <span className="text-[9px] font-black uppercase tracking-[0.2em]">{tab.label}</span>
                         </button>
                     ))}
@@ -685,69 +806,45 @@ export default function PartyDetails() {
                     />
                 )}
                 {activeTab === 'achievements' && (
-                    <div className="space-y-8 animate-in pb-20">
-                        <section className="space-y-4">
-                            <div className="flex justify-between items-end px-2">
-                                <div className="space-y-1">
-                                    <h2 className="text-4xl font-black font-outfit text-white tracking-tighter uppercase">Medal Rack.</h2>
-                                    <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Service Achievements Unlocked</p>
-                                </div>
-                                <div className="text-right">
-                                    <p className="text-2xl font-black font-outfit text-white">{userAchievements.length}/{ACHIEVEMENTS.length}</p>
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600">Total Medals</p>
-                                </div>
+                    <div className="flex flex-col items-center justify-center min-h-[60vh] px-6 text-center animate-in fade-in zoom-in duration-700 pb-20">
+                        <div className="relative mb-12 group">
+                            {/* Outer glowing pulsing ring */}
+                            <div className="absolute -inset-4 bg-primary/20 blur-2xl rounded-full animate-pulse group-hover:bg-primary/30 transition-all duration-700" />
+                            {/* Inner spinning/rotating glow */}
+                            <div className="absolute inset-0 bg-gradient-to-tr from-primary/40 to-transparent blur-xl rounded-full animate-[spin_4s_linear_infinite]" />
+
+                            {/* Main Icon container */}
+                            <div className="w-28 h-28 relative rounded-full bg-zinc-950/80 backdrop-blur-xl flex items-center justify-center border border-white/10 shadow-[0_0_40px_rgba(0,0,0,0.8)] overflow-hidden">
+                                {/* Subtle inner animated gradient */}
+                                <div className="absolute inset-0 bg-gradient-to-b from-white/5 to-transparent pointer-events-none" />
+
+                                <Medal className="w-12 h-12 text-primary drop-shadow-[0_0_12px_rgba(11,219,37,0.8)] animate-bounce" style={{ animationDuration: '3s' }} />
+                            </div>
+                        </div>
+
+                        <div className="space-y-4 max-w-sm mx-auto">
+                            <div className="inline-flex items-center space-x-2 bg-primary/10 border border-primary/20 rounded-full px-3 py-1 mb-2">
+                                <span className="relative flex h-2 w-2">
+                                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span>
+                                    <span className="relative inline-flex rounded-full h-2 w-2 bg-primary"></span>
+                                </span>
+                                <span className="text-[10px] font-bold text-primary uppercase tracking-widest">In Development</span>
                             </div>
 
-                            <div className="grid grid-cols-2 gap-4">
-                                {ACHIEVEMENTS.map((achievement) => {
-                                    const isUnlocked = userAchievements.includes(achievement.id)
-                                    return (
-                                        <Card
-                                            key={achievement.id}
-                                            className={cn(
-                                                "p-6 relative overflow-hidden flex flex-col items-center text-center space-y-4 transition-all duration-500 rounded-[2.5rem] border-white/5",
-                                                isUnlocked
-                                                    ? "bg-gradient-to-br from-zinc-900 to-zinc-800 ring-2 ring-primary/20 shadow-[0_20px_50px_rgba(0,122,255,0.15)]"
-                                                    : "bg-zinc-900/40 opacity-40 grayscale"
-                                            )}
-                                        >
-                                            {isUnlocked && (
-                                                <div className={cn(
-                                                    "absolute -top-10 -right-10 w-24 h-24 blur-[40px] opacity-30 bg-gradient-to-br",
-                                                    achievement.color
-                                                )} />
-                                            )}
+                            <h3 className="text-3xl font-black text-transparent bg-clip-text bg-gradient-to-b from-white to-white/60 font-outfit uppercase tracking-[0.15em]">
+                                Medal Rack
+                            </h3>
 
-                                            <div className={cn(
-                                                "w-16 h-16 rounded-[2rem] flex items-center justify-center text-3xl shadow-2xl relative z-10",
-                                                isUnlocked ? `bg-gradient-to-br ${achievement.color} text-white` : "bg-black text-zinc-700"
-                                            )}>
-                                                {achievement.icon}
-                                                {isUnlocked && (
-                                                    <div className="absolute inset-0 rounded-[2rem] animate-pulse bg-white/10 blur-md" />
-                                                )}
-                                            </div>
+                            <p className="text-sm font-medium text-zinc-400 leading-relaxed">
+                                The trophy case is being polished. Keep your stats high—we're tracking every shift while we finalize the display!
+                            </p>
+                        </div>
 
-                                            <div className="space-y-1 relative z-10">
-                                                <h3 className="font-black font-outfit text-sm text-white tracking-tight">{achievement.label}</h3>
-                                                <p className="text-[10px] text-zinc-500 font-bold leading-tight">{achievement.description}</p>
-                                            </div>
-
-                                            <div className={cn(
-                                                "px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-widest relative z-10",
-                                                isUnlocked ? "bg-primary/10 text-primary border border-primary/20" : "bg-black text-zinc-700 border border-white/5"
-                                            )}>
-                                                {achievement.requirement}
-                                            </div>
-                                        </Card>
-                                    )
-                                })}
-                            </div>
-                        </section>
-
-                        <div className="p-6 bg-zinc-900/40 rounded-[2.5rem] border border-dashed border-white/5 text-center space-y-2">
-                            <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-600">New missions loading soon...</p>
-                            <p className="text-[8px] font-bold text-zinc-700 px-6 italic">Achievements are tracked in real-time as you log shifts. Tap any locked medal to see intel on how to claim it.</p>
+                        {/* Decorative icons at the bottom */}
+                        <div className="mt-16 flex gap-4 opacity-40 grayscale blur-[1px]">
+                            <Trophy className="w-8 h-8 animate-pulse text-zinc-500" style={{ animationDelay: '0ms' }} />
+                            <Medal className="w-6 h-6 animate-pulse text-zinc-500 mt-4" style={{ animationDelay: '500ms' }} />
+                            <Medal className="w-8 h-8 animate-pulse text-zinc-500" style={{ animationDelay: '1000ms' }} />
                         </div>
                     </div>
                 )}
@@ -812,12 +909,17 @@ export default function PartyDetails() {
                                 <LeaderboardItem
                                     key={player.id}
                                     name={player.name}
+                                    userId={player.id}
                                     value={`$${(sortMetric === 'sales' ? player.sales : player.tips).toLocaleString(undefined, { maximumFractionDigits: 0 })}`}
                                     rank={i + 1}
                                     type={sortMetric === 'sales' ? 'Weekly Net Sales' : 'Tips + Wage Combined'}
                                     avatar={player.avatar}
                                     isAdmin={player.isAdmin}
                                     isPrivate={player.isPrivate}
+                                    medals={[
+                                        ...(groupAchievements[player.id] || []),
+                                        ...(player.id === weekendWarriorId ? ['weekend_warrior'] : [])
+                                    ].filter((v, i, a) => a.indexOf(v) === i)}
                                     onClick={() => handleViewIntel(player.id, player.name, player.isPrivate)}
                                 />
                             )) : (
@@ -848,7 +950,7 @@ export default function PartyDetails() {
 
                 {/* ── FEED TAB ── */}
                 {activeTab === 'feed' && (
-                    <div className="fixed inset-0 z-[100] bg-black flex flex-col h-[100dvh] w-full max-w-md mx-auto">
+                    <div className="fixed inset-0 z-[100] bg-black flex flex-col h-[100dvh] w-full max-w-md mx-auto overflow-hidden overscroll-none">
                         {/* Transparent overlay to dismiss reaction popups by tapping anywhere */}
                         {activeReactionPopup && (
                             <div
@@ -879,7 +981,7 @@ export default function PartyDetails() {
                         </div>
 
                         {/* Feed Stream */}
-                        <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 scroll-smooth select-none touch-manipulation">
+                        <div className="flex-1 overflow-y-auto p-4 flex flex-col-reverse gap-4 scroll-smooth overscroll-contain">
                             {(() => {
                                 const actualItems = []
                                 const itemReactions: Record<string, any[]> = {}
@@ -903,7 +1005,7 @@ export default function PartyDetails() {
                                     const authorName = item.is_anonymous ? 'Ghost Server' : (memberMatch?.display_name || 'A server')
                                     const avatar = item.is_anonymous
                                         ? `https://api.dicebear.com/9.x/shapes/svg?seed=${item.id}&backgroundColor=000&shape1Color=111`
-                                        : (memberMatch?.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${authorName}`)
+                                        : (memberMatch?.profiles?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${item.user_id}`)
 
                                     // Aggregate reactions for this item
                                     const reactionsForThisItem = itemReactions[item.id] || []
@@ -918,7 +1020,7 @@ export default function PartyDetails() {
                                         <div
                                             key={item.id}
                                             className={cn(
-                                                "p-5 rounded-[2rem] relative transition-all shrink-0 group select-none [-webkit-touch-callout:none] tap-highlight-transparent",
+                                                "p-5 rounded-[2rem] relative transition-all shrink-0 group tap-highlight-transparent touch-pan-y",
                                                 isSystem
                                                     ? "bg-zinc-900 border border-primary/20 shadow-[0_4px_30px_rgba(255,255,255,0.02)]"
                                                     : "bg-zinc-900/40 border border-white/5 active:bg-white/5 transition-colors"
@@ -1007,6 +1109,24 @@ export default function PartyDetails() {
                                                             {isSystem ? 'System Alert' : authorName}
                                                             {item.is_anonymous && !isSystem && <span className="ml-1 opacity-50 text-[10px]">👻</span>}
                                                         </p>
+                                                        {!isSystem && !item.is_anonymous && (
+                                                            <div className="flex items-center gap-0.5 ml-1 bg-black/40 px-1.5 py-0.5 rounded-full border border-white/5">
+                                                                {[
+                                                                    ...(groupAchievements[item.user_id] || []),
+                                                                    ...(item.user_id === weekendWarriorId ? ['weekend_warrior'] : [])
+                                                                ].filter((v, i, a) => a.indexOf(v) === i).slice(0, 3).map((m, idx) => {
+                                                                    const ach = ACHIEVEMENTS.find(a => a.id === m);
+                                                                    return (
+                                                                        <span key={idx} className="text-[10px]" title={ach?.label}>
+                                                                            {ach?.icon}
+                                                                        </span>
+                                                                    );
+                                                                })}
+                                                                {(groupAchievements[item.user_id]?.length || 0) + (item.user_id === weekendWarriorId ? 1 : 0) > 3 && (
+                                                                    <span className="text-[8px] text-zinc-500 font-black">+{((groupAchievements[item.user_id]?.length || 0) + (item.user_id === weekendWarriorId ? 1 : 0)) - 3}</span>
+                                                                )}
+                                                            </div>
+                                                        )}
                                                         <span className="text-[8px] font-black text-zinc-600 tracking-widest uppercase ml-auto shrink-0">
                                                             {format(new Date(item.created_at), 'MMM d, h:mm a')}
                                                         </span>
@@ -1023,43 +1143,20 @@ export default function PartyDetails() {
                                                         "font-outfit text-sm tracking-tight leading-relaxed",
                                                         isSystem ? "text-white font-bold" : "text-zinc-300"
                                                     )}>
+                                                        {item.metadata?.image_url && (
+                                                            <div className="mb-3 rounded-[1.5rem] overflow-hidden border border-white/10 shadow-2xl bg-black/40">
+                                                                <img src={item.metadata.image_url} alt="Feed media" className="w-full h-auto max-h-[400px] object-contain mx-auto" loading="lazy" />
+                                                            </div>
+                                                        )}
+                                                        {item.metadata?.gif_url && (
+                                                            <div className="mb-3 rounded-[1.5rem] overflow-hidden border border-white/10 shadow-2xl bg-black/40">
+                                                                <img src={item.metadata.gif_url} alt="GIF" className="w-full h-auto max-h-[400px] object-contain mx-auto" loading="lazy" />
+                                                            </div>
+                                                        )}
                                                         {item.event_type === 'poll' ? (
-                                                            <div className="space-y-4 mt-2">
-                                                                <p className="text-white font-black text-base">{item.metadata?.question}</p>
-                                                                <div className="space-y-2">
-                                                                    {item.metadata?.options.map((opt: any, i: number) => {
-                                                                        const votes = item.metadata?.voters || {}
-                                                                        const totalVotes = Object.keys(votes).length
-                                                                        const optionVotes = Object.values(votes).filter(v => v === i).length
-                                                                        const percent = totalVotes === 0 ? 0 : Math.round((optionVotes / totalVotes) * 100)
-                                                                        const myVote = currentUserId ? votes[currentUserId] === i : false
-
-                                                                        return (
-                                                                            <button
-                                                                                key={i}
-                                                                                onClick={() => handleVote(item.id, i)}
-                                                                                disabled={!currentUserId}
-                                                                                className={cn(
-                                                                                    "w-full p-4 rounded-2xl relative overflow-hidden transition-all text-left ring-1 ring-white/5 hover:ring-white/10",
-                                                                                    myVote ? "ring-primary/50 bg-primary/20" : "bg-zinc-900/40"
-                                                                                )}
-                                                                            >
-                                                                                <div
-                                                                                    className={cn("absolute inset-y-0 left-0 bg-primary/20 transition-all duration-500", myVote ? "bg-primary/30" : "")}
-                                                                                    style={{ width: `${percent}%` }}
-                                                                                />
-                                                                                <div className="relative flex justify-between items-center gap-2">
-                                                                                    <div className="flex items-center gap-3">
-                                                                                        {myVote && <div className="w-2 h-2 rounded-full bg-primary" />}
-                                                                                        <span className={cn("text-xs font-black", myVote ? "text-primary" : "text-white")}>{opt}</span>
-                                                                                    </div>
-                                                                                    <span className="text-[10px] font-black text-zinc-600">{percent}%</span>
-                                                                                </div>
-                                                                            </button>
-                                                                        )
-                                                                    })}
-                                                                </div>
-                                                                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-700">Tapping an option logs your tactical decision</p>
+                                                            <div className="p-4 bg-zinc-900/60 rounded-2xl border border-dashed border-white/5 text-center">
+                                                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">Archived Tactical Poll</p>
+                                                                <p className="text-white font-bold mt-1">{item.metadata?.question || item.content}</p>
                                                             </div>
                                                         ) : (
                                                             <span dangerouslySetInnerHTML={{ __html: item.content.replace(/\*\*(.*?)\*\*/g, '<span class="text-white font-black">$1</span>') }} />
@@ -1130,6 +1227,26 @@ export default function PartyDetails() {
                         {/* Input Area */}
                         <div className="shrink-0 p-4 border-t border-white/5 bg-zinc-900/80 backdrop-blur-2xl">
                             <form onSubmit={handlePostChat} className="flex flex-col gap-3">
+                                <AnimatePresence>
+                                    {pendingMedia && (
+                                        <motion.div
+                                            initial={{ opacity: 0, y: 10, scale: 0.9 }}
+                                            animate={{ opacity: 1, y: 0, scale: 1 }}
+                                            exit={{ opacity: 0, y: 10, scale: 0.9 }}
+                                            className="relative w-20 h-20 rounded-2xl overflow-hidden border-2 border-primary shadow-2xl group self-start mb-1"
+                                        >
+                                            <img src={pendingMedia.url} alt="Selection" className="w-full h-full object-cover" />
+                                            <button
+                                                type="button"
+                                                onClick={() => setPendingMedia(null)}
+                                                className="absolute top-1 right-1 p-1 bg-black/60 rounded-full text-white hover:bg-black transition-all"
+                                            >
+                                                <X className="w-3 h-3" />
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
                                 {/* Segmented Toggle */}
                                 <div className="flex p-1 bg-black rounded-xl border border-white/10 shadow-inner">
                                     <button
@@ -1148,73 +1265,31 @@ export default function PartyDetails() {
                                     </button>
                                 </div>
 
-                                <AnimatePresence>
-                                    {showPollCreator && (
-                                        <motion.div
-                                            initial={{ height: 0, opacity: 0 }}
-                                            animate={{ height: 'auto', opacity: 1 }}
-                                            exit={{ height: 0, opacity: 0 }}
-                                            className="bg-zinc-900 border border-white/10 rounded-2xl p-4 mb-2 space-y-4 shadow-3xl overflow-hidden"
-                                        >
-                                            <div className="flex justify-between items-center">
-                                                <p className="text-[10px] font-black uppercase tracking-widest text-primary italic">Command Poll</p>
-                                                <button onClick={() => setShowPollCreator(false)} className="p-1 rounded-lg hover:bg-white/5 text-zinc-500"><X className="w-4 h-4" /></button>
-                                            </div>
-                                            <input
-                                                placeholder="Poll Question?"
-                                                value={pollQuestion}
-                                                onChange={e => setPollQuestion(e.target.value)}
-                                                className="w-full bg-black/60 border border-white/5 rounded-xl px-4 py-3 text-sm font-black text-white focus:border-primary outline-none"
-                                            />
-                                            <div className="space-y-2">
-                                                {pollOptions.map((opt, i) => (
-                                                    <div key={i} className="flex gap-2">
-                                                        <input
-                                                            placeholder={`Option ${i + 1}`}
-                                                            value={opt}
-                                                            onChange={e => {
-                                                                const newOpts = [...pollOptions]
-                                                                newOpts[i] = e.target.value
-                                                                setPollOptions(newOpts)
-                                                            }}
-                                                            className="flex-1 bg-black/40 border border-white/5 rounded-xl px-3 py-2 text-xs font-bold text-white focus:border-primary/50 outline-none"
-                                                        />
-                                                        {pollOptions.length > 2 && (
-                                                            <button onClick={() => setPollOptions(pollOptions.filter((_, idx) => idx !== i))} className="p-2 text-zinc-700 hover:text-red-400"><X className="w-4 h-4" /></button>
-                                                        )}
-                                                    </div>
-                                                ))}
-                                                {pollOptions.length < 4 && (
-                                                    <button
-                                                        type="button"
-                                                        onClick={() => setPollOptions([...pollOptions, ''])}
-                                                        className="w-full py-2 border border-dashed border-white/5 rounded-xl text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:text-white transition-colors"
-                                                    >
-                                                        + Add Option
-                                                    </button>
-                                                )}
-                                            </div>
-                                            <Button
-                                                type="button"
-                                                onClick={handlePollSubmit}
-                                                disabled={!pollQuestion.trim() || pollOptions.some(o => !o.trim())}
-                                                className="w-full py-3 h-auto !rounded-xl"
-                                            >
-                                                Deploy Poll
-                                            </Button>
-                                        </motion.div>
-                                    )}
-                                </AnimatePresence>
-
-                                {/* Text Input */}
                                 <div className="flex items-center gap-2 bg-black py-2 px-2.5 rounded-[1.5rem] border border-white/10 shadow-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                                     <button
                                         type="button"
-                                        onClick={() => setShowPollCreator(!showPollCreator)}
-                                        className={cn("p-2 rounded-xl transition-all", showPollCreator ? "bg-primary text-white" : "bg-white/5 text-zinc-500 hover:text-white")}
+                                        onClick={() => setShowGiphyPicker(true)}
+                                        className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                                        title="Post a GIF"
                                     >
-                                        <Vote className="w-5 h-5" />
+                                        <Film className="w-5 h-5" />
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={() => fileInputRef.current?.click()}
+                                        disabled={uploadingMedia}
+                                        className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all active:scale-95 flex items-center justify-center overflow-hidden"
+                                        title="Upload a Photo"
+                                    >
+                                        {uploadingMedia ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+                                    </button>
+                                    <input
+                                        type="file"
+                                        hidden
+                                        ref={fileInputRef}
+                                        accept="image/*"
+                                        onChange={handlePhotoUpload}
+                                    />
                                     <input
                                         type="text"
                                         value={chatInput}
@@ -1225,8 +1300,11 @@ export default function PartyDetails() {
                                     />
                                     <button
                                         type="submit"
-                                        disabled={!chatInput.trim() || postingChat}
-                                        className={cn("w-10 h-10 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all disabled:opacity-50", chatInput.trim() ? "bg-primary text-white shadow-[0_0_15px_rgba(0,122,255,0.4)] hover:scale-105 active:scale-95" : "bg-white/5 text-zinc-600")}
+                                        disabled={(!chatInput.trim() && !pendingMedia) || postingChat}
+                                        className={cn(
+                                            "w-10 h-10 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all disabled:opacity-50",
+                                            chatInput.trim() || pendingMedia ? "bg-primary text-white shadow-[0_0_15px_rgba(0,122,255,0.4)] hover:scale-105 active:scale-95" : "bg-white/5 text-zinc-600"
+                                        )}
                                     >
                                         <ArrowUpRight className="w-5 h-5" />
                                     </button>
@@ -1289,12 +1367,32 @@ export default function PartyDetails() {
                                                 <code className="font-mono font-black text-primary text-3xl tracking-[0.5em] group-hover:text-white transition-colors">{group?.invite_code}</code>
                                             </button>
                                             <div className="flex gap-2 bg-black/40 p-2 rounded-2xl ring-1 ring-white/5">
-                                                <code className="flex-1 px-3 py-2 font-mono font-bold text-zinc-500 text-[10px] truncate flex items-center">
+                                                <a
+                                                    href={`https://percoco-pool.vercel.app/join/${group?.invite_code}`}
+                                                    target="_blank"
+                                                    rel="noopener noreferrer"
+                                                    className="flex-1 px-3 py-2 font-mono font-bold text-primary hover:underline text-[10px] truncate flex items-center"
+                                                >
                                                     percoco-pool.vercel.app/join/{group?.invite_code}
-                                                </code>
+                                                </a>
                                                 <Button type="button" className="px-4 py-2 text-xs shrink-0 rounded-xl"
-                                                    onClick={() => { navigator.clipboard.writeText(`https://percoco-pool.vercel.app/join/${group?.invite_code}`); toast.success('Copied!') }}>
-                                                    Copy
+                                                    onClick={() => {
+                                                        const url = `https://percoco-pool.vercel.app/join/${group?.invite_code}`;
+                                                        if (navigator.share) {
+                                                            navigator.share({
+                                                                title: 'Join my Pool Party Party',
+                                                                text: `Join ${group?.name} on Pool Party Boss!`,
+                                                                url
+                                                            }).catch(() => {
+                                                                navigator.clipboard.writeText(url);
+                                                                toast.success('Copied!');
+                                                            });
+                                                        } else {
+                                                            navigator.clipboard.writeText(url);
+                                                            toast.success('Copied!');
+                                                        }
+                                                    }}>
+                                                    Share Link
                                                 </Button>
                                             </div>
                                         </div>
@@ -1302,7 +1400,7 @@ export default function PartyDetails() {
                                 </Card>
 
                                 {/* Member Roster */}
-                                <Card className="!p-6 bg-zinc-900/40 border-white/5 rounded-3xl space-y-4 shadow-2xl">
+                                <Card className="!p-6 sm:!p-10 shadow-3xl bg-zinc-900 border-white/10 rounded-[2.5rem] sm:rounded-[3rem] space-y-6 sm:space-y-8 relative overflow-hidden">
                                     <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Member Command</p>
                                     <div className="space-y-2">
                                         {members.map((m: any) => (
@@ -1345,7 +1443,58 @@ export default function PartyDetails() {
             </div>
 
 
-            {/* ── PLAYER INTEL MODAL ── */}
+            <Modal isOpen={showGiphyPicker} onClose={() => setShowGiphyPicker(false)} title="Pick a Gif">
+                <div className="flex flex-col gap-4">
+                    <div className="relative">
+                        <input
+                            autoFocus
+                            placeholder="Find memes or search..."
+                            value={giphySearch}
+                            onChange={(e) => setGiphySearch(e.target.value)}
+                            className="w-full bg-black border border-white/10 rounded-2xl px-5 py-3 pl-12 text-sm font-black text-white placeholder:text-zinc-600 focus:border-primary outline-none transition-all"
+                        />
+                        <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-600" />
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-2 overflow-y-auto max-h-[60vh] pr-1 custom-scrollbar pb-10">
+                        {giphyLoading && giphyResults.length === 0 ? (
+                            <div className="col-span-2 py-20 flex justify-center">
+                                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+                            </div>
+                        ) : giphyResults.length > 0 ? (
+                            giphyResults.map((gif: any) => (
+                                <button
+                                    key={gif.id}
+                                    type="button"
+                                    onClick={() => {
+                                        setPendingMedia({ url: gif.url, type: 'gif' })
+                                        setShowGiphyPicker(false)
+                                    }}
+                                    className="relative h-[110px] sm:h-[130px] rounded-xl overflow-hidden hover:ring-2 ring-primary transition-all active:scale-95 bg-zinc-900 group border border-white/5 shadow-lg shrink-0"
+                                >
+                                    <img
+                                        src={gif.url}
+                                        alt={gif.title}
+                                        className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                                        loading="lazy"
+                                    />
+                                    <div className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                </button>
+                            ))
+                        ) : !giphyLoading && (
+                            <div className="col-span-2 py-20 text-center space-y-2">
+                                <Search className="w-8 h-8 mx-auto text-zinc-800" />
+                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">No memes found.</p>
+                            </div>
+                        )}
+                        {giphyLoading && giphyResults.length > 0 && (
+                            <div className="col-span-2 py-4 flex justify-center">
+                                <Loader2 className="w-4 h-4 text-primary animate-spin" />
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </Modal>
             <Modal isOpen={!!selectedUserIntel} onClose={() => setSelectedUserIntel(null)} title={selectedUserIntel?.isPrivate ? 'Stats Hidden' : `${selectedUserIntel?.name?.split(' ')[0]}'s Portal`}>
                 <div className="space-y-6 overflow-y-auto max-h-[65vh] pr-2 pb-4 scroll-smooth">
                     {selectedUserIntel?.isPrivate ? (
@@ -1391,7 +1540,7 @@ export default function PartyDetails() {
                                         <div className="absolute inset-0 bg-gradient-to-br from-primary/10 to-transparent pointer-events-none" />
                                         <div className="w-24 h-24 rounded-full bg-black ring-4 ring-zinc-900 overflow-hidden relative z-10 shadow-2xl">
                                             <img
-                                                src={selectedUserIntel?.profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedUserIntel?.name}`}
+                                                src={selectedUserIntel?.profile?.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${selectedUserIntel?.userId}`}
                                                 alt="avatar"
                                                 className="w-full h-full object-cover"
                                             />
@@ -1401,7 +1550,7 @@ export default function PartyDetails() {
                                                 {selectedUserIntel?.name}
                                             </h3>
                                             <p className="text-[10px] font-black uppercase tracking-[0.2em] text-primary mt-0.5">
-                                                Party Member Dossier
+                                                {group?.name} {selectedUserIntel?.userId === group?.owner_id ? 'Admin' : 'Member'}
                                             </p>
                                         </div>
 
@@ -1415,14 +1564,6 @@ export default function PartyDetails() {
                                                 <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1">Serving Since</span>
                                                 <span className="text-[10px] font-black tracking-widest text-white">{selectedUserIntel?.profile?.work_anniversary || 'Private'}</span>
                                             </div>
-                                            <div className="bg-black/50 p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1">IG Handle</span>
-                                                <span className="text-[10px] font-black tracking-widest text-primary">{selectedUserIntel?.profile?.instagram || 'N/A'}</span>
-                                            </div>
-                                            <div className="bg-black/50 p-3 rounded-2xl border border-white/5 flex flex-col items-center justify-center">
-                                                <span className="text-[8px] font-black uppercase tracking-widest text-zinc-500 mb-1">Section</span>
-                                                <span className="text-[10px] font-black tracking-widest text-white truncate max-w-[80px]">{selectedUserIntel?.profile?.favorite_section || 'N/A'}</span>
-                                            </div>
                                         </div>
 
                                         {selectedUserIntel?.profile?.phone && (
@@ -1435,7 +1576,7 @@ export default function PartyDetails() {
 
                                         {selectedUserIntel?.profile?.bio && (
                                             <div className="mt-2 w-full p-4 bg-black/30 rounded-2xl border border-white/5 relative z-10">
-                                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600 mb-1">Dossier / Bio</p>
+                                                <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600 mb-1">Bio</p>
                                                 <p className="text-[10px] font-outfit text-zinc-400 leading-relaxed italic">"{selectedUserIntel.profile.bio}"</p>
                                             </div>
                                         )}
@@ -1535,6 +1676,6 @@ export default function PartyDetails() {
                     )}
                 </div>
             </Modal>
-        </div>
+        </div >
     )
 }

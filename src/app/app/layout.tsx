@@ -4,15 +4,69 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Home, PlusSquare, History, Users, Settings } from 'lucide-react'
 import { cn } from '@/components/PercocoUI'
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
+    const [hasUnread, setHasUnread] = useState(false)
+    const supabase = createClient()
+
+    useEffect(() => {
+        let mounted = true
+        let channel: any = null
+
+        const checkUnread = async () => {
+            const { data: { user } } = await supabase.auth.getUser()
+            if (!user) return
+
+            const lastRead = localStorage.getItem('percoco_last_read_all') || new Date(0).toISOString()
+
+            const { data: memberships } = await supabase
+                .from('group_members')
+                .select('group_id')
+                .eq('user_id', user.id)
+
+            if (!memberships || memberships.length === 0) return
+            const groupIds = memberships.map((m: any) => m.group_id)
+
+            const { count } = await supabase
+                .from('party_feed')
+                .select('*', { count: 'exact', head: true })
+                .in('group_id', groupIds)
+                .gt('created_at', lastRead)
+
+            if (mounted) setHasUnread((count || 0) > 0)
+
+            channel = supabase.channel('global-feed-dots')
+                .on('postgres_changes', {
+                    event: 'INSERT',
+                    schema: 'public',
+                    table: 'party_feed'
+                }, (payload: any) => {
+                    if (groupIds.includes(payload.new.group_id)) {
+                        if (mounted) setHasUnread(true)
+                    }
+                })
+                .subscribe()
+        }
+
+        checkUnread()
+        const handleRead = () => setHasUnread(false)
+        window.addEventListener('percoco_feed_read', handleRead)
+
+        return () => {
+            mounted = false
+            if (channel) supabase.removeChannel(channel)
+            window.removeEventListener('percoco_feed_read', handleRead)
+        }
+    }, [])
 
     const tabs = [
         { label: 'Home', icon: Home, href: '/app' },
         { label: 'History', icon: History, href: '/app/history' },
         { label: 'New', icon: PlusSquare, href: '/app/new', center: true },
-        { label: 'Parties', icon: Users, href: '/app/groups' },
+        { label: 'Parties', icon: Users, href: '/app/groups', hasDot: hasUnread },
         { label: 'Settings', icon: Settings, href: '/app/settings' },
     ]
 
@@ -38,10 +92,15 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
                     return (
                         <Link key={tab.href} href={tab.href} className={cn(
-                            "flex flex-col items-center gap-1 transition-colors",
+                            "flex flex-col items-center gap-1 transition-colors relative",
                             isActive ? "text-primary" : "text-[var(--muted-foreground)]"
                         )}>
-                            <Icon className={cn("w-6 h-6", isActive && "fill-primary/10")} />
+                            <div className="relative">
+                                <Icon className={cn("w-6 h-6", isActive && "fill-primary/10")} />
+                                {(tab as any).hasDot && (
+                                    <span className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[var(--card)] animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.5)]" />
+                                )}
+                            </div>
                             <span className="text-[10px] font-bold uppercase tracking-tight">{tab.label}</span>
                         </Link>
                     )

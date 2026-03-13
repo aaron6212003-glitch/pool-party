@@ -20,24 +20,28 @@ export default function SettingsPage() {
     const [adminUnlocked, setAdminUnlocked] = useState(false)
     const [adminPin, setAdminPin] = useState('')
     const [pinError, setPinError] = useState(false)
+    const [loaded, setLoaded] = useState(false)
     const [birthday, setBirthday] = useState('')
     const [workAnniversary, setWorkAnniversary] = useState('')
     const [bio, setBio] = useState('')
     const [phone, setPhone] = useState('')
     const [instagram, setInstagram] = useState('')
     const [favoriteSection, setFavoriteSection] = useState('')
-    const [theme, setTheme] = useState('blue')
+    const [theme, setTheme] = useState(() => {
+        if (typeof window !== 'undefined') {
+            return localStorage.getItem('app-theme') || 'blue'
+        }
+        return 'blue'
+    })
     const fileInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
     const supabase = createClient()
     const ADMIN_PIN = '654321'
-
     useEffect(() => {
         const init = async () => {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
             setUser(user)
-            setNewName(user?.user_metadata?.full_name || '')
 
             // Load avatar_url from profiles table (real source of truth, not JWT)
             const { data: profile } = await supabase
@@ -45,19 +49,32 @@ export default function SettingsPage() {
                 .select('avatar_url, share_to_leaderboard, birthday, work_anniversary, bio, theme, phone, instagram, favorite_section')
                 .eq('id', user.id)
                 .single()
+
             if (profile) {
-                setNewAvatar(profile.avatar_url || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user.id}`)
+                setNewName(user?.user_metadata?.full_name || '')
+                if (profile.avatar_url) setNewAvatar(profile.avatar_url)
                 setBirthday(profile.birthday || '')
                 setWorkAnniversary(profile.work_anniversary || '')
                 setBio(profile.bio || '')
                 setPhone(profile.phone || '')
                 setInstagram(profile.instagram || '')
                 setFavoriteSection(profile.favorite_section || '')
-                setTheme(profile.theme || 'blue')
+                if (profile.theme) {
+                    setTheme(profile.theme)
+                    localStorage.setItem('app-theme', profile.theme)
+                }
                 if (profile.share_to_leaderboard !== null) {
                     setShareToLeaderboard(profile.share_to_leaderboard)
                 }
+            } else {
+                // IMPORTANT: Create profile entry if it doesn't exist to prevent targeted .update() calls from failing
+                await supabase.from('profiles').upsert({
+                    id: user.id,
+                    email: user.email,
+                    theme: theme // use the (potentially) localStorage theme
+                })
             }
+            setLoaded(true)
         }
         init()
     }, [])
@@ -70,15 +87,17 @@ export default function SettingsPage() {
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault()
+        if (!loaded || !user) return toast.error("Profile not loaded yet.")
+
         setLoading(true)
         try {
             // Only update the name in auth metadata (avatar lives in profiles table now)
-            const { error } = await supabase.auth.updateUser({
-                data: { full_name: newName }
+            const { error: authErr } = await supabase.auth.updateUser({
+                data: { full_name: newName, avatar_url: newAvatar }
             })
-            if (error) throw error
+            if (authErr) throw authErr
 
-            // Upsert to profiles with email (required) + avatar_url
+            // Upsert to profiles with all fields to ensure no data loss
             const { error: profileErr } = await supabase.from('profiles').upsert({
                 id: user.id,
                 email: user.email,
@@ -88,19 +107,21 @@ export default function SettingsPage() {
                 work_anniversary: workAnniversary,
                 bio,
                 phone,
-                instagram,
-                favorite_section: favoriteSection,
                 theme
             })
-            if (profileErr) { console.error('Profile upsert error:', profileErr); throw profileErr }
+            if (profileErr) throw profileErr
 
             // Sync display name to all parties
             await supabase.from('group_members').update({ display_name: newName }).eq('user_id', user.id)
 
             toast.success('Profile updated!')
             setShowEdit(false)
-            setUser({ ...user, user_metadata: { ...user.user_metadata, full_name: newName } })
+
+            // Refresh local state 
+            const { data: { user: freshUser } } = await supabase.auth.getUser()
+            if (freshUser) setUser(freshUser)
         } catch (e: any) {
+            console.error('Update error:', e)
             toast.error(e.message)
         } finally {
             setLoading(false)
@@ -159,20 +180,11 @@ export default function SettingsPage() {
                 })
             }
 
-            // Step 3: Save to profiles table (with email to satisfy NOT NULL)
-            const { error: profileErr } = await supabase.from('profiles').upsert({
-                id: user.id,
-                email: user.email,
-                avatar_url: finalUrl,
-                birthday,
-                work_anniversary: workAnniversary,
-                bio,
-                phone,
-                instagram,
-                favorite_section: favoriteSection,
-                share_to_leaderboard: shareToLeaderboard,
-                theme
-            })
+            // Step 3: Use .update() instead of .upsert() so we don't wipe out other fields (theme, bio, etc.)
+            const { error: profileErr } = await supabase.from('profiles')
+                .update({ avatar_url: finalUrl })
+                .eq('id', user.id)
+
             if (profileErr) throw profileErr
 
             setNewAvatar(finalUrl)
@@ -185,20 +197,43 @@ export default function SettingsPage() {
         }
     }
 
-    // Apply theme globally
+    const formatDateInput = (value: string) => {
+        const cleaned = value.replace(/\D/g, '').slice(0, 8)
+        let formatted = cleaned
+        if (cleaned.length > 2 && cleaned.length <= 4) {
+            formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`
+        } else if (cleaned.length > 4) {
+            formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4)}`
+        }
+        return formatted
+    }
+
+    const formatPhoneInput = (value: string) => {
+        const cleaned = value.replace(/\D/g, '').slice(0, 10)
+        let formatted = cleaned
+        if (cleaned.length > 3 && cleaned.length <= 6) {
+            formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`
+        } else if (cleaned.length > 6) {
+            formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`
+        }
+        return formatted
+    }
+
     useEffect(() => {
+        if (!loaded || !user) return
+
         document.documentElement.setAttribute('data-theme', theme)
         localStorage.setItem('app-theme', theme)
 
-        // Auto-save theme to profile for immediate cross-device sync
-        const syncTheme = async () => {
-            if (user) {
-                const { error } = await supabase.from('profiles').update({ theme }).eq('id', user.id)
-                if (error) console.error('Failed to sync theme:', error)
-            }
+        const syncThemeToDB = async () => {
+            // Use .update() to avoid wiping other profile fields
+            const { error } = await supabase.from('profiles')
+                .update({ theme })
+                .eq('id', user.id)
+            if (error) console.error('Failed to sync theme:', error)
         }
-        syncTheme()
-    }, [theme, user])
+        syncThemeToDB()
+    }, [theme, loaded, user?.id])
 
     const THEMES = [
         { id: 'blue', color: '#007AFF', name: 'Original' },
@@ -307,6 +342,9 @@ export default function SettingsPage() {
                                 src={newAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
                                 alt="Avatar"
                                 className="w-full h-full object-cover"
+                                onError={(e) => {
+                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`
+                                }}
                             />
                         </div>
                         <button
@@ -502,7 +540,14 @@ export default function SettingsPage() {
                                 <div className="flex flex-col items-center gap-4">
                                     <div className="relative group overflow-hidden rounded-[2.5rem] shadow-2xl">
                                         <div className="w-32 h-32 bg-black ring-4 ring-primary/10 transition-all group-hover:scale-105 duration-500">
-                                            <img src={newAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} alt="Preview" className="w-full h-full object-cover" />
+                                            <img
+                                                src={newAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
+                                                alt="Preview"
+                                                className="w-full h-full object-cover"
+                                                onError={(e) => {
+                                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`
+                                                }}
+                                            />
                                         </div>
                                         {uploading && (
                                             <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
@@ -552,43 +597,28 @@ export default function SettingsPage() {
                                         <Input
                                             label="Birthday"
                                             value={birthday}
-                                            onChange={(e) => setBirthday(e.target.value)}
-                                            placeholder="Day Month Year"
+                                            onChange={(e) => setBirthday(formatDateInput(e.target.value))}
+                                            placeholder="MM/DD/YYYY"
                                             className="bg-black text-xs"
                                         />
                                         <Input
                                             label="Serving Since"
                                             value={workAnniversary}
-                                            onChange={(e) => setWorkAnniversary(e.target.value)}
-                                            placeholder="Day Month Year"
+                                            onChange={(e) => setWorkAnniversary(formatDateInput(e.target.value))}
+                                            placeholder="MM/DD/YYYY"
                                             className="bg-black text-xs"
                                         />
                                     </div>
 
-                                    <div className="grid grid-cols-2 gap-4">
+                                    <div className="grid grid-cols-1 gap-4">
                                         <Input
                                             label="Phone Number"
                                             value={phone}
-                                            onChange={(e) => setPhone(e.target.value)}
+                                            onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
                                             placeholder="555-555-5555"
                                             className="bg-black text-xs"
                                         />
-                                        <Input
-                                            label="Instagram Handle"
-                                            value={instagram}
-                                            onChange={(e) => setInstagram(e.target.value)}
-                                            placeholder="@handle"
-                                            className="bg-black text-xs"
-                                        />
                                     </div>
-
-                                    <Input
-                                        label="Favorite Section"
-                                        value={favoriteSection}
-                                        onChange={(e) => setFavoriteSection(e.target.value)}
-                                        placeholder="Patios / Upstairs"
-                                        className="bg-black text-xs"
-                                    />
 
                                     <div className="space-y-1.5">
                                         <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Short Bio</label>

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { Card, Button, Input, SectionTitle, GlassCard, Badge, Modal, cn } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+
 import { toast } from 'sonner'
 import { History, Calendar, LayoutGrid, TrendingUp, ChevronRight, Clock, Trash2, AlertCircle, Info, Calculator, Wallet, ChevronDown, Trophy } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachWeekOfInterval, subMonths, isWithinInterval } from 'date-fns'
@@ -81,27 +81,40 @@ export default function HistoryPage() {
 
     // Weekly Stats Logic
     const weeklyStats = filteredEntries.reduce((acc, curr) => {
-        const cc = parseFloat(curr.tips || 0)
-        const cash = parseFloat(curr.computed_data?.cashTips || 0)
-        const wage = parseFloat(curr.computed_data?.wageEarnings || 0)
-        const tipOut = parseFloat(curr.computed_data?.supportPool || 0)
+        const ccTips = parseFloat(curr.tips || 0)
+        const cashTips = parseFloat(curr.computed_data?.cashTips || 0)
+        const wageEarnings = parseFloat(curr.computed_data?.wageEarnings || 0)
+        const supportDeduction = parseFloat(curr.computed_data?.supportPool || 0)
 
-        // Cash bypassed taxes
-        const cashInHand = cash
-
-        // Paycheck logic
-        const checkGross = cc + wage - tipOut
-        const checkNet = checkGross * 0.85 // 15% Tax
-
-        const grossEarned = cc + cash + wage
+        const preTaxCheck = ccTips + wageEarnings - supportDeduction
+        const estTaxes = preTaxCheck * 0.15
+        const postTaxCheck = preTaxCheck - estTaxes
+        const totalTakehome = cashTips + postTaxCheck
 
         return {
             sales: acc.sales + parseFloat(curr.net_sales || 0),
-            tips: acc.tips + grossEarned,
             hours: acc.hours + parseFloat(curr.hours || 0),
-            takehome: acc.takehome + checkNet + cashInHand
+            ccTips: acc.ccTips + ccTips,
+            cashTips: acc.cashTips + cashTips,
+            wageEarnings: acc.wageEarnings + wageEarnings,
+            supportDeduction: acc.supportDeduction + supportDeduction,
+            preTaxCheck: acc.preTaxCheck + preTaxCheck,
+            estTaxes: acc.estTaxes + estTaxes,
+            postTaxCheck: acc.postTaxCheck + postTaxCheck,
+            totalTakehome: acc.totalTakehome + totalTakehome,
         }
-    }, { sales: 0, tips: 0, hours: 0, takehome: 0 })
+    }, {
+        sales: 0,
+        hours: 0,
+        ccTips: 0,
+        cashTips: 0,
+        wageEarnings: 0,
+        supportDeduction: 0,
+        preTaxCheck: 0,
+        estTaxes: 0,
+        postTaxCheck: 0,
+        totalTakehome: 0,
+    })
 
     const selectedShift = entries.find(s => s.id === selectedShiftId)
 
@@ -199,29 +212,69 @@ export default function HistoryPage() {
                 )
             })()}
 
-            {/* Weekly Performance HUD */}
+            {/* Weekly Paycheck Breakdown */}
             <section className="space-y-4">
                 <div className="flex items-center gap-2 px-1">
                     <div className="w-1 h-3 bg-secondary rounded-full"></div>
-                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Weekly Performance</p>
+                    <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Weekly Paycheck Breakdown</p>
                 </div>
-                <Card className="grid grid-cols-2 gap-4 p-8 bg-zinc-900 border-white/5 rounded-[2.5rem] shadow-3xl text-center">
-                    <div className="space-y-1 border-r border-white/5">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600">Take-Home (Est.)</p>
-                        <p className="text-3xl font-black font-outfit text-white tracking-tighter">${weeklyStats.takehome.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                <Card className="!p-8 bg-black border-white/5 rounded-[2rem] space-y-6 text-white font-outfit overflow-hidden relative">
+                    <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
+
+                    <div className="flex items-center gap-2 mb-2 relative z-10">
+                        <Info className="w-3.5 h-3.5 text-primary" />
+                        <span className="text-[10px] font-black uppercase tracking-widest text-white">Estimated Earnings</span>
                     </div>
-                    <div className="space-y-1">
-                        <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600">Tips + Wage</p>
-                        <p className="text-3xl font-black font-outfit text-white tracking-tighter">${weeklyStats.tips.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-                    </div>
-                    <div className="col-span-2 pt-6 mt-4 border-t border-white/5 grid grid-cols-2">
-                        <div className="space-y-1">
-                            <p className="text-[7px] font-black uppercase tracking-widest text-zinc-700">Net Sales</p>
-                            <p className="text-lg font-black font-outfit text-zinc-400">${weeklyStats.sales.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+
+                    <div className="space-y-4 relative z-10">
+                        <div className="flex justify-between items-center">
+                            <p className="text-xs font-bold text-zinc-500">Credit Card Tips</p>
+                            <p className="text-xs font-black">${weeklyStats.ccTips.toFixed(2)}</p>
                         </div>
-                        <div className="space-y-1">
-                            <p className="text-[7px] font-black uppercase tracking-widest text-zinc-700">Total Hours</p>
-                            <p className="text-lg font-black font-outfit text-zinc-400">{Math.floor(weeklyStats.hours)}h {Math.round((weeklyStats.hours % 1) * 60)}m</p>
+                        <div className="flex justify-between items-center">
+                            <p className="text-xs font-bold text-zinc-500">Wage Earnings</p>
+                            <p className="text-xs font-black">${weeklyStats.wageEarnings.toFixed(2)}</p>
+                        </div>
+
+                        <div className="flex justify-between items-center text-red-500">
+                            <p className="text-xs font-bold opacity-80">Support Pool Deduction</p>
+                            <p className="text-xs font-black">-${weeklyStats.supportDeduction.toFixed(2)}</p>
+                        </div>
+
+                        <div className="h-px bg-white/5" />
+
+                        <div className="flex justify-between items-center">
+                            <p className="text-xs font-black uppercase tracking-tighter text-white">Pre-Tax Check</p>
+                            <p className="text-sm font-black">${weeklyStats.preTaxCheck.toFixed(2)}</p>
+                        </div>
+                        <div className="flex justify-between items-center text-indigo-400">
+                            <p className="text-xs font-bold italic opacity-80">Est. 15% Taxes</p>
+                            <p className="text-xs font-black">-${weeklyStats.estTaxes.toFixed(2)}</p>
+                        </div>
+
+                        <div className="pt-3 pb-1 flex justify-between items-center">
+                            <div className="space-y-0.5">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Post-Tax Check</p>
+                            </div>
+                            <p className="text-[15px] font-black font-outfit text-white">${weeklyStats.postTaxCheck.toFixed(2)}</p>
+                        </div>
+
+                        <div className="h-px border-t border-dashed border-white/10" />
+
+                        <div className="flex justify-between items-center">
+                            <div className="space-y-0.5">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">Cash in Hand</p>
+                                <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Kept separate, untaxed</p>
+                            </div>
+                            <p className="text-[15px] font-black font-outfit text-amber-400">${weeklyStats.cashTips.toFixed(2)}</p>
+                        </div>
+
+                        <div className="flex justify-between items-center pt-4 border-t border-emerald-500/20 bg-emerald-500/5 p-4 rounded-xl shadow-[inset_0_1px_0_0_rgba(16,185,129,0.1)] mt-4">
+                            <div className="space-y-0.5">
+                                <p className="text-sm font-black text-emerald-400 uppercase tracking-tighter">Total Takehome</p>
+                                <p className="text-[8px] font-black text-emerald-600/60 uppercase tracking-widest">Check + Cash</p>
+                            </div>
+                            <p className="text-3xl font-black text-emerald-400 tracking-tighter">${weeklyStats.totalTakehome.toFixed(2)}</p>
                         </div>
                     </div>
                 </Card>

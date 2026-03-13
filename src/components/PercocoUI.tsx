@@ -117,23 +117,25 @@ export const SectionTitle = ({ children, subtitle }: { children: React.ReactNode
 export const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, onClose: () => void, title?: string, children: React.ReactNode }) => (
     <AnimatePresence>
         {isOpen && (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl">
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-xl">
                 <motion.div
-                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
+                    initial={{ scale: 0.95, opacity: 0, y: 30 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
-                    className="w-full max-w-sm"
+                    exit={{ scale: 0.95, opacity: 0, y: 30 }}
+                    className="w-full max-w-sm max-h-[90vh] flex flex-col"
                 >
-                    <Card className="!p-10 shadow-3xl bg-zinc-900 border-white/10 rounded-[3rem] space-y-8 relative">
+                    <Card className="!p-5 sm:!p-8 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] bg-zinc-900 border-white/10 rounded-[2rem] sm:rounded-[3rem] space-y-5 sm:space-y-8 relative overflow-hidden flex flex-col h-full">
                         {title && (
-                            <div className="flex justify-between items-center">
-                                <h3 className="text-2xl font-black font-outfit text-white tracking-tighter">{title}</h3>
-                                <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-zinc-500 hover:text-white transition-colors">
+                            <div className="flex justify-between items-center shrink-0">
+                                <h3 className="text-xl sm:text-2xl font-black font-outfit text-white tracking-tighter">{title}</h3>
+                                <button onClick={onClose} className="p-2 bg-white/5 rounded-full text-zinc-500 hover:text-white transition-all active:scale-90">
                                     <X className="w-4 h-4" />
                                 </button>
                             </div>
                         )}
-                        {children}
+                        <div className="flex-1 overflow-y-auto min-h-0 custom-scrollbar pr-1">
+                            {children}
+                        </div>
                     </Card>
                 </motion.div>
             </div>
@@ -141,24 +143,41 @@ export const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, o
     </AnimatePresence>
 )
 
-export const GroupInvitePanel = ({ code, onCopy }: { code: string, onCopy: () => void }) => {
+export const GroupInvitePanel = ({ code, onCopy, name }: { code: string, onCopy: () => void, name?: string }) => {
     const inviteUrl = `https://percoco-pool.vercel.app/join/${code}`;
+    const handleShare = () => {
+        const shareData = {
+            title: 'Join my Pool Party Party',
+            text: `Join ${name || 'the party'} on Pool Party Boss!`,
+            url: inviteUrl
+        };
+
+        if (navigator.share && navigator.canShare && navigator.canShare(shareData)) {
+            navigator.share(shareData).catch(() => {
+                navigator.clipboard.writeText(inviteUrl);
+                onCopy();
+            });
+        } else {
+            navigator.clipboard.writeText(inviteUrl);
+            onCopy();
+        }
+    };
+
     return (
         <Card className="!p-8 shadow-apple-lg border-primary/10 space-y-4">
             <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-orange-500/10 flex items-center justify-center text-orange-500">
+                <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
                     <Hash className="w-5 h-5" />
                 </div>
                 <h3 className="font-bold text-lg font-outfit">Invite Coworkers</h3>
             </div>
             <div className="flex gap-3 bg-black p-2 rounded-xl ring-1 ring-white/10 overflow-hidden">
-                <code className="flex-1 px-4 py-3 font-mono font-bold text-primary tracking-tight flex items-center text-xs truncate whitespace-nowrap overflow-x-auto">{inviteUrl}</code>
-                <Button onClick={() => {
-                    navigator.clipboard.writeText(inviteUrl);
-                    onCopy();
-                }} className="px-4 py-2 text-xs shrink-0">Copy Link</Button>
+                <a href={inviteUrl} className="flex-1 px-4 py-3 font-mono font-bold text-primary hover:underline tracking-tight flex items-center text-xs truncate whitespace-nowrap overflow-x-auto">
+                    {inviteUrl}
+                </a>
+                <Button onClick={handleShare} className="px-4 py-2 text-xs shrink-0">Share</Button>
             </div>
-            <p className="text-xs text-zinc-500 text-center">Send this link to your team to join this group instantly.</p>
+            <p className="text-xs text-zinc-500 text-center">Tap to share the secure link with your team.</p>
         </Card>
     );
 };

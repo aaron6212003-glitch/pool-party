@@ -1,13 +1,13 @@
 "use client"
 
 import { useState, useEffect, useRef } from 'react'
-import { Card, Button, SectionTitle, GlassCard, Badge, cn } from '@/components/PercocoUI'
+import { Card, Button, SectionTitle, GlassCard, Badge, cn, Modal } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Calculator, Save, DollarSign, Calendar as CalendarIcon, Clock, ChevronDown, UserCircle, Banknote, Timer, Info } from 'lucide-react'
 import confetti from 'canvas-confetti'
-import { format, eachDayOfInterval, subDays, isSameDay, getDaysInMonth, setMonth, setDate as setDay, setYear, getYear, getMonth, getDate } from 'date-fns'
+import { format, eachDayOfInterval, subDays, isSameDay, getDaysInMonth, setMonth, setDate as setDay, setYear, getYear, getMonth, getDate, startOfWeek, endOfWeek } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
 
 export default function NewShiftEntry() {
@@ -26,6 +26,7 @@ export default function NewShiftEntry() {
     const [groups, setGroups] = useState<any[]>([])
     const [selectedGroupId, setSelectedGroupId] = useState('individual')
     const [loading, setLoading] = useState(false)
+    const [showConfirm, setShowConfirm] = useState(false)
     const router = useRouter()
     const supabase = createClient()
 
@@ -94,10 +95,17 @@ export default function NewShiftEntry() {
         }
     }
 
-    const handleSave = async (e: React.FormEvent) => {
+    const handleSave = (e: React.FormEvent) => {
         e.preventDefault()
         if (!netSales) return toast.error("Please enter net sales")
+        if (!tips && !cashTips) return toast.error("Did you make $0? If so, bless your heart, but log something.")
+        if (nHours <= 0) return toast.error("Time travel isn't supported yet. Please enter your hours.")
 
+        setShowConfirm(true)
+    }
+
+    const confirmSave = async () => {
+        setShowConfirm(false)
         setLoading(true)
         try {
             const { data: { user } } = await supabase.auth.getUser()
@@ -213,7 +221,8 @@ export default function NewShiftEntry() {
                     sales: nSales,
                     tips: nTips + nCash,
                     date: selectedDate,
-                    shiftType: shiftType
+                    shiftType: shiftType,
+                    duration: nHours
                 })
             }
 
@@ -237,22 +246,22 @@ export default function NewShiftEntry() {
             const unlockedTypes = new Set(existing?.map((a: any) => a.achievement_type) || [])
             const newAchievements: string[] = []
 
-            // 1. Whale Hunter ($500+ Sales)
-            if (!unlockedTypes.has('whale_hunter') && currentShift.sales >= 500) {
+            // 1. Whale Hunter ($2,500+ Sales)
+            if (!unlockedTypes.has('whale_hunter') && currentShift.sales >= 2500) {
                 newAchievements.push('whale_hunter')
             }
 
-            // 2. Tip Monarch (25%+ Tip Portfolio)
-            const tipPct = currentShift.sales > 0 ? (currentShift.tips / currentShift.sales) : 0
-            if (!unlockedTypes.has('tip_king') && tipPct >= 0.25) {
+            // 2. Tip Monarch ($500+ in tips)
+            if (!unlockedTypes.has('tip_king') && currentShift.tips >= 500) {
                 newAchievements.push('tip_king')
             }
 
-            // 3. Clutch Player (Weekend $400+)
-            const day = currentShift.date.getDay() // 0=Sun, 6=Sat
-            if (!unlockedTypes.has('clutch') && (day === 0 || day === 6) && currentShift.sales >= 400) {
-                newAchievements.push('clutch')
+            // 3. Marathoner (Shift > 10 hours)
+            if (!unlockedTypes.has('marathoner') && currentShift.duration >= 10) {
+                newAchievements.push('marathoner')
             }
+
+            // Weekend Warrior is now competitive - handled below
 
             // For frequency-based ones, we need historical data
             const { data: history } = await supabase
@@ -262,29 +271,19 @@ export default function NewShiftEntry() {
                 .eq('group_id', groupId)
 
             if (history) {
-                // 4. Consistent (5 Total Shifts)
-                if (!unlockedTypes.has('consistent') && history.length >= 5) {
-                    newAchievements.push('consistent')
+                // 5. Legendary (50 Total Shifts)
+                if (!unlockedTypes.has('legendary') && history.length >= 50) {
+                    newAchievements.push('legendary')
                 }
 
-                // 5. On Fire (3+ Shifts in 7 days)
+                // 6. On Fire (5+ Shifts in 7 days)
                 if (!unlockedTypes.has('on_fire')) {
                     const last7Days = history.filter((s: any) => {
                         const sDate = new Date(s.date)
                         const diff = (new Date().getTime() - sDate.getTime()) / (1000 * 3600 * 24)
                         return diff <= 7
                     })
-                    if (last7Days.length >= 3) newAchievements.push('on_fire')
-                }
-
-                // 6. Night Owl (5 Late shifts in current month)
-                if (!unlockedTypes.has('night_owl')) {
-                    const currentMonth = new Date().getMonth()
-                    const lateShifts = history.filter((s: any) => {
-                        const sDate = new Date(s.date)
-                        return sDate.getMonth() === currentMonth && (s.shift_type === 'dinner' || s.shift_type === 'double')
-                    })
-                    if (lateShifts.length >= 5) newAchievements.push('night_owl')
+                    if (last7Days.length >= 5) newAchievements.push('on_fire')
                 }
             }
 
@@ -301,26 +300,75 @@ export default function NewShiftEntry() {
                     })
 
                     // Get label for feed
-                    const label = {
+                    const label = ({
                         'whale_hunter': '🏹 Whale Hunter',
-                        'tip_king': '👑 Tip Monarch',
-                        'clutch': '⚡ Clutch Player',
-                        'consistent': '💎 Consistent',
+                        'tip_king': '💰 Tip Monarch',
+                        'marathoner': '👟 Marathoner',
                         'on_fire': '🔥 On Fire',
-                        'night_owl': '🦉 Night Owl'
-                    }[type]
+                        'legendary': '💎 Legendary'
+                    } as any)[type]
 
-                    await supabase.from('party_feed').insert({
-                        group_id: groupId,
-                        user_id: userId,
-                        event_type: 'system',
-                        content: `🎖️ **${name}** has just been awarded the **${label}** medal!`,
-                        metadata: { type: 'achievement_unlocked', achievement: type }
+                    if (label) {
+                        await supabase.from('party_feed').insert({
+                            group_id: groupId,
+                            user_id: userId,
+                            event_type: 'system',
+                            content: `🎖️ **${name}** has just been awarded the **${label}** medal!`,
+                            metadata: { type: 'achievement_unlocked', achievement: type }
+                        })
+
+                        toast(`Medal Earned: ${label}! 🎖️`, {
+                            description: "Check your Medal Rack in the party hub."
+                        })
+                    }
+                }
+            }
+
+            // ── WEEKEND WARRIOR COMPETITIVE CHECK (Fri-Sun Hours) ──
+            const day = currentShift.date.getDay()
+            if (day === 5 || day === 6 || day === 0) {
+                const weekStart = format(startOfWeek(currentShift.date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+                const weekEnd = format(endOfWeek(currentShift.date, { weekStartsOn: 1 }), 'yyyy-MM-dd')
+
+                const { data: weekShifts } = await supabase
+                    .from('shift_entries')
+                    .select('user_id, duration, date')
+                    .eq('group_id', groupId)
+                    .gte('date', weekStart)
+                    .lte('date', weekEnd)
+
+                if (weekShifts) {
+                    const totals: Record<string, number> = {}
+                    weekShifts.forEach((s: any) => {
+                        const sd = new Date(s.date).getDay()
+                        if (sd === 5 || sd === 6 || sd === 0) {
+                            totals[s.user_id] = (totals[s.user_id] || 0) + (parseFloat(s.duration) || 0)
+                        }
                     })
 
-                    toast(`Medal Earned: ${label}! 🎖️`, {
-                        description: "Check your Medal Rack in the party hub."
+                    let maxOthers = 0
+                    Object.entries(totals).forEach(([uid, hrs]) => {
+                        if (uid !== userId && hrs > maxOthers) maxOthers = hrs
                     })
+
+                    const myTotal = totals[userId] || 0
+                    if (myTotal > maxOthers && myTotal > 0) {
+                        const prevTotal = myTotal - (currentShift.duration || 0)
+                        const tookLead = prevTotal <= maxOthers
+
+                        if (tookLead) {
+                            const { data: profile } = await supabase.from('group_members').select('display_name').eq('user_id', userId).eq('group_id', groupId).single()
+                            const dispName = profile?.display_name || 'A server'
+
+                            await supabase.from('party_feed').insert({
+                                group_id: groupId,
+                                user_id: userId,
+                                event_type: 'system',
+                                content: `**${dispName}** just TOOK the lead as the **Weekend Warrior** with **${myTotal.toFixed(1)}** total hours! ⚡`,
+                                metadata: { type: 'weekend_warrior_lead', hours: myTotal }
+                            })
+                        }
+                    }
                 }
             }
         } catch (e) {
@@ -577,6 +625,37 @@ export default function NewShiftEntry() {
                     </Button>
                 </div>
             </form>
+
+            <Modal isOpen={showConfirm} onClose={() => setShowConfirm(false)}>
+                <div className="space-y-6 text-center">
+                    <div className="w-20 h-20 bg-primary/10 rounded-full flex items-center justify-center mx-auto mb-4 ring-4 ring-primary/5">
+                        <Save className="w-10 h-10 text-primary" />
+                    </div>
+                    <div className="space-y-2">
+                        <h3 className="text-3xl font-black font-outfit text-white tracking-tighter">Confirm Log.</h3>
+                        <p className="text-[10px] font-black uppercase tracking-[0.3em] text-primary">Final Verification</p>
+                    </div>
+                    <p className="text-sm font-medium text-zinc-400 leading-relaxed font-outfit px-2">
+                        I confirm that the sales, tips, and hours entered for this shift are 100% accurate.
+                        <br /><br />
+                        <span className="text-xs text-zinc-600 font-black uppercase tracking-widest leading-loose">Acknowledge shift integrity to continue.</span>
+                    </p>
+                    <div className="flex flex-col gap-3 pt-4">
+                        <Button
+                            onClick={confirmSave}
+                            className="w-full py-6 text-lg rounded-[2rem] shadow-2xl shadow-primary/20"
+                        >
+                            Log Shift
+                        </Button>
+                        <button
+                            onClick={() => setShowConfirm(false)}
+                            className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600 hover:text-white transition-colors py-2"
+                        >
+                            Wait, go back
+                        </button>
+                    </div>
+                </div>
+            </Modal>
 
             <style jsx>{`
                 .no-spinners input::-webkit-outer-spin-button,
