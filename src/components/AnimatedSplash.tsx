@@ -14,8 +14,14 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
     // 3. 'float': a splash occurs and the words float on the water line
     const [phase, setPhase] = useState<'puzzle' | 'drop' | 'float'>('puzzle')
     const [shouldExit, setShouldExit] = useState(false)
+    const [hasSeenSplash, setHasSeenSplash] = useState<boolean | null>(null)
 
     useEffect(() => {
+        const seen = sessionStorage.getItem('pool_party_splash_seen') === 'true'
+        setHasSeenSplash(seen)
+
+        if (seen) return
+
         // Timeline for the animation sequence
         const dropTimer = setTimeout(() => setPhase('drop'), 2200) // Drop after puzzle snap
         const floatTimer = setTimeout(() => setPhase('float'), 2900) // Float after splash
@@ -27,18 +33,38 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
     }, [])
 
     useEffect(() => {
+        if (hasSeenSplash === null) return
+
+        if (hasSeenSplash) {
+             if (isComplete && onComplete) onComplete()
+             return
+        }
+
         if (isComplete && phase === 'float') {
             setShouldExit(true)
+            sessionStorage.setItem('pool_party_splash_seen', 'true')
             if (onComplete) setTimeout(onComplete, 800) // wait for exit animation
         } else if (isComplete && phase !== 'float') {
             // Force it to run through animation before exiting if data loads instantly
             const exitTimer = setTimeout(() => {
                 setShouldExit(true)
+                sessionStorage.setItem('pool_party_splash_seen', 'true')
                 if (onComplete) setTimeout(onComplete, 800)
             }, 3200)
             return () => clearTimeout(exitTimer)
         }
-    }, [isComplete, phase, onComplete])
+    }, [isComplete, phase, onComplete, hasSeenSplash])
+
+    if (hasSeenSplash === null) return null
+
+    if (hasSeenSplash) {
+        if (isComplete) return null
+        return (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
+            </div>
+        )
+    }
 
     // Container controls the drop and float sequence of the whole group
     const dropFloatVariants = {
