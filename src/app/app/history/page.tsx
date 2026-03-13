@@ -252,14 +252,23 @@ export default function HistoryPage() {
                             <p className="text-xs font-black">-${weeklyStats.estTaxes.toFixed(2)}</p>
                         </div>
 
-                        <div className="pt-3 pb-1 flex justify-between items-center">
+                        <div className="flex justify-between items-center pt-4 border-t border-indigo-500/20 bg-indigo-500/5 p-4 rounded-xl shadow-[inset_0_1px_0_0_rgba(99,102,241,0.1)] mt-4">
                             <div className="space-y-0.5">
-                                <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Post-Tax Check</p>
+                                <p className="text-sm font-black text-indigo-400 uppercase tracking-tighter">Expected Deposit</p>
+                                <p className="text-[8px] font-black text-indigo-400/60 uppercase tracking-widest">Excludes Cash</p>
                             </div>
-                            <p className="text-[15px] font-black font-outfit text-white">${weeklyStats.postTaxCheck.toFixed(2)}</p>
+                            <p className="text-3xl font-black text-indigo-400 tracking-tighter">${weeklyStats.postTaxCheck.toFixed(2)}</p>
                         </div>
 
-                        <div className="h-px border-t border-dashed border-white/10" />
+                        <div className="h-px border-t border-dashed border-white/10 mt-4" />
+
+                        <div className="flex justify-between items-center mt-4">
+                            <div className="space-y-0.5">
+                                <p className="text-[10px] font-black uppercase tracking-widest text-emerald-400">Total Takehome</p>
+                                <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Check + Cash</p>
+                            </div>
+                            <p className="text-[15px] font-black font-outfit text-emerald-400">${weeklyStats.totalTakehome.toFixed(2)}</p>
+                        </div>
 
                         <div className="flex justify-between items-center">
                             <div className="space-y-0.5">
@@ -267,14 +276,6 @@ export default function HistoryPage() {
                                 <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Kept separate, untaxed</p>
                             </div>
                             <p className="text-[15px] font-black font-outfit text-amber-400">${weeklyStats.cashTips.toFixed(2)}</p>
-                        </div>
-
-                        <div className="flex justify-between items-center pt-4 border-t border-emerald-500/20 bg-emerald-500/5 p-4 rounded-xl shadow-[inset_0_1px_0_0_rgba(16,185,129,0.1)] mt-4">
-                            <div className="space-y-0.5">
-                                <p className="text-sm font-black text-emerald-400 uppercase tracking-tighter">Total Takehome</p>
-                                <p className="text-[8px] font-black text-emerald-600/60 uppercase tracking-widest">Check + Cash</p>
-                            </div>
-                            <p className="text-3xl font-black text-emerald-400 tracking-tighter">${weeklyStats.totalTakehome.toFixed(2)}</p>
                         </div>
                     </div>
                 </Card>

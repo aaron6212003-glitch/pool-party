@@ -106,11 +106,11 @@ export default function Dashboard() {
     const firstName = user?.user_metadata?.full_name?.split(' ')[0] ?? 'Server'
 
     // PAYCHECK CALCULATIONS
-    const preTaxEarnings = (stats.grossTips - stats.tipOutPaid) + stats.wageEarnings
-    const estimatedTax = preTaxEarnings * 0.15
-    const takeHomePay = preTaxEarnings - estimatedTax
+    const preTaxCheck = (stats.ccTips + stats.wageEarnings) - stats.tipOutPaid
+    const estimatedTax = preTaxCheck * 0.15
+    const digitalDeposit = Math.max(0, preTaxCheck - estimatedTax)
     const cashInHand = stats.cashTips
-    const digitalDeposit = Math.max(0, takeHomePay - cashInHand)
+    const totalTakehome = digitalDeposit + cashInHand
 
     const selectedShift = recentShifts.find((s: any) => s.id === selectedShiftId)
 
@@ -173,16 +173,16 @@ export default function Dashboard() {
                                 <div className="flex items-center justify-between">
                                     <div className="flex items-center gap-2">
                                         <Wallet className="w-3 h-3 text-primary" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500">Weekly Paycheck Est.</span>
+                                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500">Expected Deposit</span>
                                     </div>
                                     <Badge className={cn("border-none text-[8px] font-black uppercase tracking-widest transition-colors", paycheckExpanded ? "bg-primary/20 text-primary" : "bg-white/5 text-zinc-600")}>
                                         {paycheckExpanded ? 'Hide' : 'Breakdown'}
                                     </Badge>
                                 </div>
                                 <h2 className="text-7xl font-black font-outfit text-white tracking-tighter leading-none">
-                                    ${takeHomePay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    ${Math.floor(digitalDeposit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
                                 </h2>
-                                <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest pt-1">Post-tax estimate · resets Monday</p>
+                                <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest pt-1">Excludes cash in hand · resets Monday</p>
                             </div>
                         </button>
 
@@ -213,32 +213,32 @@ export default function Dashboard() {
                                 </div>
 
                                 <div className="flex justify-between items-center pt-3 border-t border-white/5">
-                                    <span className="text-xs font-black text-white uppercase tracking-tighter">Pre-Tax Earnings</span>
-                                    <span className="text-lg font-black text-white font-outfit">${preTaxEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                                    <span className="text-xs font-black text-white uppercase tracking-tighter">Pre-Tax Check</span>
+                                    <span className="text-lg font-black text-white font-outfit">${preTaxCheck.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-xs font-bold text-zinc-600 italic">Est. 15% Tax</span>
                                     <span className="text-xs font-black text-indigo-400 font-outfit">-${estimatedTax.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                                 </div>
 
-                                <div className="flex justify-between items-center p-5 rounded-2xl bg-primary/10 border border-primary/20 mt-2">
+                                <div className="flex justify-between items-center p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 mt-2">
                                     <div>
-                                        <p className="text-[10px] font-black text-primary uppercase tracking-widest">Post-Tax Take-Home</p>
-                                        <p className="text-[8px] font-bold text-primary/50 uppercase tracking-widest mt-0.5">Tips + Wage − Tax</p>
+                                        <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest">Expected Deposit</p>
+                                        <p className="text-[8px] font-bold text-indigo-400/50 uppercase tracking-widest mt-0.5">Excludes Cash</p>
                                     </div>
-                                    <p className="text-3xl font-black text-primary font-outfit">${takeHomePay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                    <p className="text-3xl font-black text-indigo-400 font-outfit">${digitalDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
                                 </div>
 
                                 <div className="grid grid-cols-2 gap-3 pt-1">
                                     <div className="p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-2xl">
-                                        <p className="text-[8px] font-black uppercase tracking-widest text-emerald-500/80 mb-1">Cash in Hand</p>
-                                        <p className="text-lg font-black font-outfit text-emerald-400">${cashInHand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                        <p className="text-[7px] font-bold text-emerald-900 uppercase tracking-widest mt-0.5">Already with you</p>
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-emerald-500/80 mb-1">Total Takehome</p>
+                                        <p className="text-lg font-black font-outfit text-emerald-400">${totalTakehome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        <p className="text-[7px] font-bold text-emerald-900 uppercase tracking-widest mt-0.5">Check + Cash</p>
                                     </div>
-                                    <div className="p-4 bg-indigo-500/5 border border-indigo-500/10 rounded-2xl">
-                                        <p className="text-[8px] font-black uppercase tracking-widest text-indigo-400/80 mb-1">Expected Deposit</p>
-                                        <p className="text-lg font-black font-outfit text-indigo-400">${digitalDeposit.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                                        <p className="text-[7px] font-bold text-indigo-900 uppercase tracking-widest mt-0.5">CC tips after tax</p>
+                                    <div className="p-4 bg-amber-500/5 border border-amber-500/10 rounded-2xl">
+                                        <p className="text-[8px] font-black uppercase tracking-widest text-amber-400/80 mb-1">Cash in Hand</p>
+                                        <p className="text-lg font-black font-outfit text-amber-400">${cashInHand.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                                        <p className="text-[7px] font-bold text-amber-900 uppercase tracking-widest mt-0.5">Untaxed</p>
                                     </div>
                                 </div>
 
