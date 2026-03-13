@@ -3,6 +3,8 @@
 import { motion } from 'framer-motion'
 import { useEffect, useState } from 'react'
 
+let globalSplashSeen = false
+
 export default function AnimatedSplash({ isComplete, onComplete }: { isComplete: boolean, onComplete?: () => void }) {
     // We break the text into arrays for individual letter animation
     const word1 = "POOL".split("")
@@ -14,13 +16,10 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
     // 3. 'float': a splash occurs and the words float on the water line
     const [phase, setPhase] = useState<'puzzle' | 'drop' | 'float'>('puzzle')
     const [shouldExit, setShouldExit] = useState(false)
-    const [hasSeenSplash, setHasSeenSplash] = useState<boolean | null>(null)
+    const [hasSeenSplash] = useState(globalSplashSeen)
 
     useEffect(() => {
-        const seen = sessionStorage.getItem('pool_party_splash_seen') === 'true'
-        setHasSeenSplash(seen)
-
-        if (seen) return
+        if (hasSeenSplash) return
 
         // Timeline for the animation sequence
         const dropTimer = setTimeout(() => setPhase('drop'), 2200) // Drop after puzzle snap
@@ -30,11 +29,9 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
              clearTimeout(dropTimer)
              clearTimeout(floatTimer)
         }
-    }, [])
+    }, [hasSeenSplash])
 
     useEffect(() => {
-        if (hasSeenSplash === null) return
-
         if (hasSeenSplash) {
              if (isComplete && onComplete) onComplete()
              return
@@ -42,20 +39,18 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
 
         if (isComplete && phase === 'float') {
             setShouldExit(true)
-            sessionStorage.setItem('pool_party_splash_seen', 'true')
+            globalSplashSeen = true
             if (onComplete) setTimeout(onComplete, 800) // wait for exit animation
         } else if (isComplete && phase !== 'float') {
             // Force it to run through animation before exiting if data loads instantly
             const exitTimer = setTimeout(() => {
                 setShouldExit(true)
-                sessionStorage.setItem('pool_party_splash_seen', 'true')
+                globalSplashSeen = true
                 if (onComplete) setTimeout(onComplete, 800)
             }, 3200)
             return () => clearTimeout(exitTimer)
         }
     }, [isComplete, phase, onComplete, hasSeenSplash])
-
-    if (hasSeenSplash === null) return null
 
     if (hasSeenSplash) {
         if (isComplete) return null
