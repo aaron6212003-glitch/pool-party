@@ -79,7 +79,6 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
             y: (Math.random() * -100) - 50,
             rotate: (Math.random() * 180) - 90,
             scale: 0.5,
-            filter: "blur(10px)"
         }),
         visible: {
             opacity: 1,
@@ -87,7 +86,6 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
             y: 0,
             rotate: 0,
             scale: 1,
-            filter: "blur(0px)",
             transition: {
                 type: "spring" as const,
                 damping: 15,
@@ -116,7 +114,7 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
                     variants={textContainerVariants} 
                     initial="hidden" 
                     animate="visible"
-                    className="flex text-5xl sm:text-7xl font-black font-outfit tracking-tighter"
+                    className="flex text-[13vw] sm:text-7xl font-black font-outfit tracking-tighter"
                 >
                     <div className="flex mr-4 text-white">
                         {word1.map((letter, i) => (
