@@ -8,11 +8,9 @@ import { toast } from 'sonner'
 import { History, Calendar, LayoutGrid, TrendingUp, ChevronRight, Clock, Trash2, AlertCircle, Info, Calculator, Wallet, ChevronDown, Trophy } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachWeekOfInterval, subMonths, isWithinInterval } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
-import AnimatedSplash from '@/components/AnimatedSplash'
 
 export default function HistoryPage() {
     const [loading, setLoading] = useState(true)
-    const [splashFinished, setSplashFinished] = useState(false)
     const [entries, setEntries] = useState<any[]>([])
     const [weeks, setWeeks] = useState<{ start: Date, end: Date, label: string }[]>([])
     const [selectedWeekIndex, setSelectedWeekIndex] = useState(0)
@@ -121,14 +119,14 @@ export default function HistoryPage() {
     const selectedShift = entries.find(s => s.id === selectedShiftId)
 
     if (loading) {
-        return <AnimatedSplash isComplete={false} />
+        return (
+            <div className="p-6 flex items-center justify-center min-h-[60vh] bg-black">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
+            </div>
+        )
     }
 
     return (
-        <>
-        {!splashFinished && (
-            <AnimatedSplash isComplete={!loading} onComplete={() => setSplashFinished(true)} />
-        )}
         <div className="p-6 space-y-8 animate-in pb-32 bg-black min-h-screen">
             <header className="flex justify-between items-start mt-4">
                 <div className="space-y-1">
@@ -476,6 +474,5 @@ export default function HistoryPage() {
                 </div>
             </Modal>
         </div>
-        </>
     )
 }

@@ -6,6 +6,7 @@ import { Home, PlusSquare, History, Users, Settings } from 'lucide-react'
 import { cn } from '@/components/PercocoUI'
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase/client'
+import AnimatedSplash from '@/components/AnimatedSplash'
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
     const pathname = usePathname()
@@ -72,6 +73,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
     return (
         <div className="flex flex-col min-h-screen bg-[var(--background)]">
+            <AnimatedSplash />
             <div className="flex-1 pb-24 overflow-y-auto w-full">
                 {children}
             </div>

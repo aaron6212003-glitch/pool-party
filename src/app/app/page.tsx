@@ -7,7 +7,6 @@ import { createClient } from '@/lib/supabase/client'
 import { Plus, LayoutGrid, Calendar, ChevronRight, Wallet, Trash2, AlertCircle, Info, Calculator, Banknote } from 'lucide-react'
 import { format, startOfWeek, endOfWeek } from 'date-fns'
 import { toast } from 'sonner'
-import AnimatedSplash from '@/components/AnimatedSplash'
 
 export default function Dashboard() {
     const [user, setUser] = useState<any>(null)
@@ -22,7 +21,6 @@ export default function Dashboard() {
     })
     const [recentShifts, setRecentShifts] = useState<any[]>([])
     const [loading, setLoading] = useState(true)
-    const [splashFinished, setSplashFinished] = useState(false)
     const [deleteModalKey, setDeleteModalKey] = useState<string | null>(null)
     const [selectedShiftId, setSelectedShiftId] = useState<string | null>(null)
     const [isDeleting, setIsDeleting] = useState(false)
@@ -117,14 +115,14 @@ export default function Dashboard() {
     const selectedShift = recentShifts.find((s: any) => s.id === selectedShiftId)
 
     if (loading) {
-        return <AnimatedSplash isComplete={false} />
+        return (
+            <div className="p-6 flex items-center justify-center min-h-[60vh] bg-black">
+                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
+            </div>
+        )
     }
 
     return (
-        <>
-        {!splashFinished && (
-            <AnimatedSplash isComplete={!loading} onComplete={() => setSplashFinished(true)} />
-        )}
         <div className="p-6 space-y-8 animate-in pb-40 bg-black min-h-screen">
             <header className="flex justify-between items-center mt-4 px-1">
                 <div className="space-y-0.5">
@@ -443,6 +441,5 @@ export default function Dashboard() {
                 </div>
             </Modal>
         </div>
-        </>
     )
 }

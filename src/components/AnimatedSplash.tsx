@@ -5,7 +5,7 @@ import { useEffect, useState } from 'react'
 
 let globalSplashSeen = false
 
-export default function AnimatedSplash({ isComplete, onComplete }: { isComplete: boolean, onComplete?: () => void }) {
+export default function AnimatedSplash() {
     // We break the text into arrays for individual letter animation
     const word1 = "POOL".split("")
     const word2 = "PARTY".split("")
@@ -14,7 +14,7 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
     // 1. 'puzzle': letters start scattered slowly, then snap together fast
     // 2. 'drop': the entire group drops down due to "gravity"
     // 3. 'float': a splash occurs and the words float on the water line
-    const [phase, setPhase] = useState<'puzzle' | 'drop' | 'float'>('puzzle')
+    const [phase, setPhase] = useState<'puzzle' | 'drop' | 'float' | 'done'>('puzzle')
     const [shouldExit, setShouldExit] = useState(false)
     const [hasSeenSplash] = useState(globalSplashSeen)
 
@@ -22,44 +22,22 @@ export default function AnimatedSplash({ isComplete, onComplete }: { isComplete:
         if (hasSeenSplash) return
 
         // Timeline for the animation sequence
-        const dropTimer = setTimeout(() => setPhase('drop'), 2200) // Drop after puzzle snap
-        const floatTimer = setTimeout(() => setPhase('float'), 2900) // Float after splash
+        const dropTimer = setTimeout(() => setPhase('drop'), 1800) // Faster puzzle snap
+        const floatTimer = setTimeout(() => setPhase('float'), 2400) // Splash float
+        const exitTimer = setTimeout(() => {
+            setShouldExit(true)
+            globalSplashSeen = true
+            setTimeout(() => setPhase('done'), 800) // Wait for fade out animation
+        }, 3600) // Total time before fading out
 
         return () => {
              clearTimeout(dropTimer)
              clearTimeout(floatTimer)
+             clearTimeout(exitTimer)
         }
     }, [hasSeenSplash])
 
-    useEffect(() => {
-        if (hasSeenSplash) {
-             if (isComplete && onComplete) onComplete()
-             return
-        }
-
-        if (isComplete && phase === 'float') {
-            setShouldExit(true)
-            globalSplashSeen = true
-            if (onComplete) setTimeout(onComplete, 800) // wait for exit animation
-        } else if (isComplete && phase !== 'float') {
-            // Force it to run through animation before exiting if data loads instantly
-            const exitTimer = setTimeout(() => {
-                setShouldExit(true)
-                globalSplashSeen = true
-                if (onComplete) setTimeout(onComplete, 800)
-            }, 3200)
-            return () => clearTimeout(exitTimer)
-        }
-    }, [isComplete, phase, onComplete, hasSeenSplash])
-
-    if (hasSeenSplash) {
-        if (isComplete) return null
-        return (
-            <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black">
-                <div className="animate-spin rounded-full h-8 w-8 border-t-2 border-primary"></div>
-            </div>
-        )
-    }
+    if (hasSeenSplash || phase === 'done') return null
 
     // Container controls the drop and float sequence of the whole group
     const dropFloatVariants = {
