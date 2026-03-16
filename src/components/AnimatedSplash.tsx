@@ -22,7 +22,12 @@ export default function AnimatedSplash() {
         if (hasSeenSplash) return
 
         // Timeline for the animation sequence
-        const dropTimer = setTimeout(() => setPhase('drop'), 1800) // Faster puzzle snap
+        const dropTimer = setTimeout(() => {
+            setPhase('drop')
+            if (typeof navigator !== 'undefined' && navigator.vibrate) {
+                navigator.vibrate(20) // Heavy haptic on drop splash
+            }
+        }, 1800) // Faster puzzle snap
         const floatTimer = setTimeout(() => setPhase('float'), 2400) // Splash float
         const exitTimer = setTimeout(() => {
             setShouldExit(true)
