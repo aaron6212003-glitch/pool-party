@@ -21,22 +21,22 @@ export default function AnimatedSplash() {
     useEffect(() => {
         if (hasSeenSplash) return
 
-        // ORCHESTRATION: One smooth continuous motion
-        // Puzzle snap happens over ~0.8s
+        // ORCHESTRATION: Graceful, cinematic pace
+        // Puzzle snap happens over ~1.2s
         const dropTimer = setTimeout(() => {
             setPhase('drop')
             if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                navigator.vibrate([10, 5, 10]) // Multi-hit subtle haptic
+                navigator.vibrate([15, 10, 15]) 
             }
-        }, 850) // perfectly catch the end of the snap
+        }, 1100) 
         
-        const floatTimer = setTimeout(() => setPhase('float'), 1350) 
+        const floatTimer = setTimeout(() => setPhase('float'), 1800) 
         
         const exitTimer = setTimeout(() => {
             setShouldExit(true)
             globalSplashSeen = true
-            setTimeout(() => setPhase('done'), 400)
-        }, 3000)
+            setTimeout(() => setPhase('done'), 600)
+        }, 4500) // Longer total wait for a premium feel
 
         return () => {
              clearTimeout(dropTimer)
@@ -55,18 +55,18 @@ export default function AnimatedSplash() {
             scale: 1,
             transition: { 
                 type: "spring" as const, 
-                stiffness: 500, 
-                damping: 25,
-                mass: 0.8,
+                stiffness: 250, 
+                damping: 22,
+                mass: 1.2,
                 restDelta: 0.001
             } 
         },
         float: { 
             y: [110, 104, 110],
-            rotate: [-0.5, 0.5, -0.5],
+            rotate: [-0.3, 0.3, -0.3],
             transition: { 
-                y: { repeat: Infinity, duration: 4, ease: "easeInOut" },
-                rotate: { repeat: Infinity, duration: 6, ease: "easeInOut" }
+                y: { repeat: Infinity, duration: 5, ease: "easeInOut" },
+                rotate: { repeat: Infinity, duration: 8, ease: "easeInOut" }
             }
         }
     }
@@ -76,7 +76,7 @@ export default function AnimatedSplash() {
         hidden: { opacity: 1 },
         visible: {
             opacity: 1,
-            transition: { staggerChildren: 0.08 }
+            transition: { staggerChildren: 0.12 }
         }
     }
 
@@ -154,17 +154,17 @@ export default function AnimatedSplash() {
                                         key={`ripple-wave-${i}`}
                                         initial={{ width: 0, height: 0, opacity: 0 }}
                                         animate={{ 
-                                            width: ['0px', '1000px'],
-                                            height: ['0px', '250px'],
-                                            opacity: [0.35, 0],
+                                            width: ['0px', '1400px'],
+                                            height: ['0px', '400px'],
+                                            opacity: [0.6, 0],
                                         }}
                                         transition={{
                                             repeat: Infinity,
-                                            duration: 5,
-                                            delay: i * 1.25,
+                                            duration: 6,
+                                            delay: i * 1.5,
                                             ease: "easeOut"
                                         }}
-                                        className="absolute rounded-full border-[2px] border-primary/25 blur-[3px]"
+                                        className="absolute rounded-full border-[3px] border-primary/30 blur-[4px]"
                                     />
                                 ))}
 
@@ -182,29 +182,29 @@ export default function AnimatedSplash() {
                 {/* The Splash Ring expansion - one-time fast impact rings */}
                 {phase === 'drop' && (
                     <div className="absolute top-[110px] left-1/2 -translate-x-1/2">
-                        {[0, 0.03, 0.08, 0.15].map((delay, i) => (
+                        {[0, 0.05, 0.12, 0.22].map((delay, i) => (
                             <motion.div
                                 key={`impact-wave-${i}`}
                                 initial={{ width: '40px', height: '10px', opacity: 1 }}
-                                animate={{ width: '1000px', height: '250px', opacity: 0 }}
-                                transition={{ duration: 1.5, ease: "easeOut", delay }}
-                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[1px] border-primary/40 rounded-full blur-md pointer-events-none"
+                                animate={{ width: '1500px', height: '450px', opacity: 0 }}
+                                transition={{ duration: 2, ease: "easeOut", delay }}
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[2px] border-primary/50 rounded-full blur-lg pointer-events-none"
                             />
                         ))}
                         
                         {/* High-fidelity Splash Particles */}
-                        {[...Array(12)].map((_, i) => (
+                        {[...Array(14)].map((_, i) => (
                             <motion.div
                                 key={`particle-${i}`}
                                 initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
                                 animate={{ 
-                                    x: (Math.random() - 0.5) * 160,
-                                    y: -(Math.random() * 120 + 60),
+                                    x: (Math.random() - 0.5) * 200,
+                                    y: -(Math.random() * 150 + 80),
                                     opacity: 0,
                                     scale: 0.1
                                 }}
-                                transition={{ duration: 1, ease: "easeOut", delay: 0.05 }}
-                                className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-primary/80 rounded-full blur-[0.5px] shadow-[0_0_10px_rgba(0,122,255,0.5)]"
+                                transition={{ duration: 1.2, ease: "easeOut", delay: 0.1 }}
+                                className="absolute top-0 left-1/2 w-2 h-2 bg-primary/90 rounded-full blur-[0.5px] shadow-[0_0_15px_rgba(0,122,255,0.6)]"
                             />
                         ))}
                     </div>
