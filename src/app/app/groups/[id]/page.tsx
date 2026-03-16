@@ -1092,7 +1092,7 @@ export default function PartyDetails() {
                                         <div
                                             key={item.id}
                                             className={cn(
-                                                "p-5 rounded-[2rem] relative transition-all shrink-0 group tap-highlight-transparent touch-pan-y",
+                                                "p-5 rounded-[2rem] relative transition-all shrink-0 group tap-highlight-transparent touch-pan-y select-none",
                                                 isSystem
                                                     ? "bg-zinc-900 border border-primary/20 shadow-[0_4px_30px_rgba(255,255,255,0.02)]"
                                                     : "bg-zinc-900/40 border border-white/5 active:bg-white/5 transition-colors"
@@ -1276,7 +1276,7 @@ export default function PartyDetails() {
                                                                 key={emoji}
                                                                 whileHover={{ scale: 1.2, y: -2 }}
                                                                 whileTap={{ scale: 0.9 }}
-                                                                className="text-xl p-1.5 hover:bg-white/10 rounded-full transition-colors tap-highlight-transparent"
+                                                                className="text-xl p-1.5 hover:bg-white/10 rounded-full transition-colors tap-highlight-transparent select-none"
                                                                 onClick={(e) => { e.stopPropagation(); handleReaction(item.id, emoji) }}
                                                             >
                                                                 {emoji}
@@ -1298,7 +1298,7 @@ export default function PartyDetails() {
                         </div>
 
                         {/* Input Area */}
-                        <div className="shrink-0 p-4 pb-32 border-t border-white/5 bg-zinc-900/95 backdrop-blur-3xl shadow-[0_-20px_40px_rgba(0,0,0,0.4)]">
+                        <div className="shrink-0 p-4 pb-[calc(80px+env(safe-area-inset-bottom))] border-t border-white/5 bg-zinc-900/98 backdrop-blur-3xl shadow-[0_-20px_40px_rgba(0,0,0,0.4)]">
                             <form onSubmit={handlePostChat} className="flex flex-col gap-3">
                                 <AnimatePresence>
                                     {pendingMedia && (

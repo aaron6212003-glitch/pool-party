@@ -138,49 +138,47 @@ export default function AnimatedSplash() {
 
                 {/* 
                     WATER LINE & RIPPLE SPLASH 
-                    Multiple layers for a richer effect
+                    Organic flowing effect instead of a harsh line
                 */}
-                <div className="absolute -bottom-8 w-full flex flex-col items-center">
-                    {/* Primary Water Line */}
+                <div className="absolute -bottom-10 w-full flex flex-col items-center">
+                    {/* Primary Glow Area (Replaces straight line) */}
                     <motion.div
                         initial={{ scaleX: 0, opacity: 0 }}
                         animate={
                             (phase === 'drop' || phase === 'float') 
-                                ? { scaleX: 1.5, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } } 
+                                ? { scaleX: 2.2, opacity: 1, transition: { duration: 1, ease: "easeOut" } } 
                                 : { scaleX: 0, opacity: 0 }
                         }
-                        className="w-[120%] h-[2px] bg-primary/40 blur-[1px] relative"
+                        className="w-full h-[6px] bg-gradient-to-r from-transparent via-primary/40 to-transparent blur-[6px] relative"
                     >
-                        {/* Continuous water line pulse during float */}
                         <motion.div 
                             animate={ phase === 'float' ? { 
-                                scaleX: [1, 1.2, 1],
-                                opacity: [0.8, 0.3, 0.8],
-                                transition: { repeat: Infinity, duration: 3, ease: "easeInOut" }
+                                opacity: [0.6, 0.2, 0.6],
+                                transition: { repeat: Infinity, duration: 4, ease: "easeInOut" }
                             } : {}}
-                            className="w-full h-full bg-primary shadow-[0_0_15px_rgba(0,122,255,0.8)]"
+                            className="w-full h-full bg-primary/30"
                         />
                     </motion.div>
 
-                    {/* Secondary Ripples (Concentric) */}
+                    {/* Concentric Organic Ripples */}
                     {(phase === 'drop' || phase === 'float') && (
-                        <div className="absolute top-0 w-full flex justify-center">
-                            {[0, 1, 2].map((i) => (
+                        <div className="absolute top-2 w-full flex justify-center">
+                            {[0, 1, 2, 3, 4].map((i) => (
                                 <motion.div
                                     key={`ripple-${i}`}
-                                    initial={{ scaleX: 0, opacity: 0, translateY: i * 8 }}
+                                    initial={{ scaleX: 1, opacity: 0, translateY: i * 14 }}
                                     animate={{ 
-                                        scaleX: [1.2, 1.6, 1.2],
-                                        opacity: [0.2, 0.1, 0.2],
-                                        translateY: i * 8,
+                                        scaleX: [1, 2.2, 1],
+                                        opacity: [0.12, 0.04, 0.12],
+                                        translateY: i * 14,
                                     }}
                                     transition={{
                                         repeat: Infinity,
-                                        duration: 4,
-                                        delay: i * 0.8,
+                                        duration: 6 + i,
+                                        delay: i * 1.5,
                                         ease: "easeInOut"
                                     }}
-                                    className="absolute w-[140%] h-[1px] bg-primary/30 blur-[2px]"
+                                    className="absolute w-[200%] h-[3px] bg-primary/20 blur-[5px]"
                                 />
                             ))}
                         </div>
