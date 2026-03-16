@@ -48,19 +48,20 @@ export default function AnimatedSplash() {
     const dropFloatVariants = {
         puzzle: { y: 0 },
         drop: { 
-            y: 120, 
+            y: 110, 
             transition: { 
                 type: "spring" as const, 
-                stiffness: 200, 
-                damping: 12,
-                mass: 1.5 
+                stiffness: 400, 
+                damping: 20,
+                mass: 1,
+                restDelta: 0.001
             } 
         },
         float: { 
-            y: [120, 110, 120],
+            y: [110, 102, 110],
             transition: { 
                 repeat: Infinity, 
-                duration: 3, 
+                duration: 4, 
                 ease: "easeInOut" as const
             }
         }
@@ -176,14 +177,30 @@ export default function AnimatedSplash() {
 
                 {/* The Splash Ring expansion - one-time fast impact rings */}
                 {phase === 'drop' && (
-                    <div className="absolute top-[120px] left-1/2 -translate-x-1/2">
+                    <div className="absolute top-[110px] left-1/2 -translate-x-1/2">
                         {[0, 0.05, 0.1].map((delay, i) => (
                             <motion.div
                                 key={`impact-wave-${i}`}
-                                initial={{ width: '80px', height: '20px', opacity: 1 }}
-                                animate={{ width: '700px', height: '180px', opacity: 0 }}
-                                transition={{ duration: 0.7, ease: "easeOut", delay }}
-                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[4px] border-primary/40 rounded-full blur-md pointer-events-none"
+                                initial={{ width: '40px', height: '10px', opacity: 1 }}
+                                animate={{ width: '800px', height: '180px', opacity: 0 }}
+                                transition={{ duration: 1.2, ease: "easeOut", delay }}
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[2px] border-primary/40 rounded-full blur-md pointer-events-none"
+                            />
+                        ))}
+                        
+                        {/* Splash Droplets/Particles */}
+                        {[...Array(8)].map((_, i) => (
+                            <motion.div
+                                key={`particle-${i}`}
+                                initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
+                                animate={{ 
+                                    x: (i % 2 === 0 ? 1 : -1) * (Math.random() * 60 + 20),
+                                    y: -(Math.random() * 80 + 40),
+                                    opacity: 0,
+                                    scale: 0.2
+                                }}
+                                transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
+                                className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-primary rounded-full blur-[1px]"
                             />
                         ))}
                     </div>
