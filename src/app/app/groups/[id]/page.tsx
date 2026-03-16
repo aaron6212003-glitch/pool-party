@@ -933,9 +933,10 @@ export default function PartyDetails() {
                             </button>
                             <button
                                 onClick={() => setTimeframe('all-time')}
-                                className={cn("flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-amber-500 hover:text-amber-400", timeframe === 'all-time' ? "bg-amber-500/20 shadow-lg" : "")}
+                                className={cn("flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all text-amber-500 hover:text-amber-400 flex flex-col items-center justify-center gap-0.5", timeframe === 'all-time' ? "bg-amber-500/20 shadow-lg" : "")}
                             >
-                                All-Time Records
+                                <span>Hall of Fame</span>
+                                <span className="text-[7px] opacity-60 font-bold lowercase tracking-normal">Running totals since start</span>
                             </button>
                         </div>
 
@@ -1297,7 +1298,7 @@ export default function PartyDetails() {
                         </div>
 
                         {/* Input Area */}
-                        <div className="shrink-0 p-4 pb-safe border-t border-white/5 bg-zinc-900/90 backdrop-blur-3xl">
+                        <div className="shrink-0 p-4 pb-32 border-t border-white/5 bg-zinc-900/95 backdrop-blur-3xl shadow-[0_-20px_40px_rgba(0,0,0,0.4)]">
                             <form onSubmit={handlePostChat} className="flex flex-col gap-3">
                                 <AnimatePresence>
                                     {pendingMedia && (
