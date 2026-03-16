@@ -127,8 +127,8 @@ export default function HistoryPage() {
     }
 
     return (
-        <div className="p-6 space-y-8 animate-in pb-32 bg-black min-h-screen">
-            <header className="flex justify-between items-start mt-4">
+        <div className="p-6 pt-safe space-y-8 animate-in pb-32 bg-black min-h-screen">
+            <header className="flex justify-between items-start mt-6">
                 <div className="space-y-1">
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Intelligence Catalog</p>
                     <h1 className="text-4xl font-black font-outfit text-white tracking-tighter">History.</h1>

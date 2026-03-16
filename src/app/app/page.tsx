@@ -123,8 +123,8 @@ export default function Dashboard() {
     }
 
     return (
-        <div className="p-6 space-y-8 animate-in pb-40 bg-black min-h-screen">
-            <header className="flex justify-between items-center mt-4 px-1">
+        <div className="p-6 pt-safe space-y-8 animate-in pb-40 bg-black min-h-screen">
+            <header className="flex justify-between items-center mt-6 px-1">
                 <div className="space-y-0.5">
                     <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary opacity-70">Intelligence OS</p>
                     <h1 className="text-3xl font-black font-outfit text-white tracking-tighter capitalize">G'day, {firstName}</h1>

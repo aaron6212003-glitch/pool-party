@@ -74,12 +74,12 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex flex-col min-h-screen bg-[var(--background)]">
             <AnimatedSplash />
-            <div className="flex-1 pb-24 overflow-y-auto w-full">
+            <div className="flex-1 pb-32 overflow-y-auto w-full">
                 {children}
             </div>
 
             {/* Mobile Bottom Nav */}
-            <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-[var(--card)]/80 backdrop-blur-xl border-t border-[var(--border)] px-6 py-4 flex justify-between items-center z-50">
+            <nav className="fixed bottom-0 left-1/2 -translate-x-1/2 w-full max-w-md bg-[var(--card)]/80 backdrop-blur-xl border-t border-[var(--border)] px-6 pt-4 pb-safe flex justify-between items-center z-50 min-h-[calc(80px+env(safe-area-inset-bottom))]">
                 {tabs.map((tab) => {
                     const isActive = pathname === tab.href || (tab.href !== '/app' && pathname.startsWith(tab.href))
                     const Icon = tab.icon

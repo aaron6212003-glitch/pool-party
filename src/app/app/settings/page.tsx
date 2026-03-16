@@ -280,8 +280,8 @@ export default function SettingsPage() {
     }
 
     return (
-        <div className="p-6 space-y-8 animate-in pb-32 bg-black min-h-screen">
-            <header className="space-y-1 mt-4">
+        <div className="p-6 pt-safe space-y-8 animate-in pb-32 bg-black min-h-screen">
+            <header className="space-y-1 mt-6">
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Identity & OS</p>
                 <h1 className="text-4xl font-black font-outfit text-white tracking-tighter">Settings.</h1>
             </header>

@@ -23,6 +23,8 @@
 :root {
   --primary: #007AFF;
   --secondary: #5856D6;
+  --safe-area-top: env(safe-area-inset-top);
+  --safe-area-bottom: env(safe-area-inset-bottom);
 }
 
 [data-theme='emerald'] {
@@ -55,8 +57,28 @@
   --secondary: #4F46E5;
 }
 
+* {
+  -webkit-tap-highlight-color: transparent;
+}
+
 .tap-highlight-transparent {
   -webkit-tap-highlight-color: transparent !important;
+}
+
+.pt-safe {
+  padding-top: var(--safe-area-top, 0px);
+}
+
+.pb-safe {
+  padding-bottom: var(--safe-area-bottom, 0px);
+}
+
+.mt-safe {
+  margin-top: var(--safe-area-top, 0px);
+}
+
+.mb-safe {
+  margin-bottom: var(--safe-area-bottom, 0px);
 }
 
 .no-scrollbar::-webkit-scrollbar {
@@ -122,6 +144,19 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  overflow: hidden; /* Prevent body scroll */
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  touch-action: none; /* Disable native browser touch gestures at body level */
+}
+
+main, .scroll-container {
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y; /* Re-enable vertical touch scrolling */
 }
 
 /* Custom Components */

@@ -1021,7 +1021,7 @@ export default function PartyDetails() {
 
                 {/* ── FEED TAB ── */}
                 {activeTab === 'feed' && (
-                    <div className="fixed inset-0 z-[100] bg-black flex flex-col h-[100dvh] w-full max-w-md mx-auto overflow-hidden overscroll-none">
+                    <div className="fixed inset-0 z-[100] bg-black flex flex-col h-[100dvh] w-full max-w-md mx-auto overflow-hidden overscroll-none pt-safe">
                         {/* Transparent overlay to dismiss reaction popups by tapping anywhere */}
                         {activeReactionPopup && (
                             <div
@@ -1031,7 +1031,7 @@ export default function PartyDetails() {
                             />
                         )}
                         {/* Feed Header */}
-                        <div className="shrink-0 flex items-center justify-between p-4 border-b border-white/5 bg-zinc-900/40 backdrop-blur-xl">
+                        <div className="shrink-0 flex items-center justify-between p-4 py-6 border-b border-white/5 bg-zinc-900/40 backdrop-blur-xl">
                             <button
                                 onClick={() => {
                                     if (window.location.hash === '#feed') {
