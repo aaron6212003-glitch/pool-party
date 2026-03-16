@@ -71,7 +71,7 @@ export default function AnimatedSplash() {
         hidden: { opacity: 1 },
         visible: {
             opacity: 1,
-            transition: { staggerChildren: 0.1 }
+            transition: { staggerChildren: 0.08 }
         }
     }
 
@@ -79,10 +79,10 @@ export default function AnimatedSplash() {
     const letterVariants = {
         hidden: () => ({
             opacity: 0,
-            x: (Math.random() * 200) - 100, 
-            y: (Math.random() * -100) - 50,
-            rotate: (Math.random() * 180) - 90,
-            scale: 0.5,
+            x: (Math.random() * 160) - 80, 
+            y: (Math.random() * -80) - 40,
+            rotate: (Math.random() * 90) - 45,
+            scale: 0.8,
         }),
         visible: {
             opacity: 1,
@@ -92,9 +92,9 @@ export default function AnimatedSplash() {
             scale: 1,
             transition: {
                 type: "spring" as const,
-                damping: 15,
-                stiffness: 150,
-                duration: 1.5
+                damping: 20,
+                stiffness: 80,
+                mass: 0.5,
             }
         }
     }
@@ -138,45 +138,77 @@ export default function AnimatedSplash() {
 
                 {/* 
                     WATER LINE & RIPPLE SPLASH 
-                    This appears exactly when the 'drop' phase hits 
+                    Multiple layers for a richer effect
                 */}
-                <motion.div
-                    initial={{ scaleX: 0, opacity: 0 }}
-                    animate={
-                        (phase === 'drop' || phase === 'float') 
-                            ? { scaleX: 1, opacity: 1, transition: { duration: 0.4, delay: 0.1 } } 
-                            : { scaleX: 0, opacity: 0 }
-                    }
-                    className="absolute -bottom-8 w-[140%] h-[1px] bg-primary/40 blur-[1px]"
-                >
-                    {/* Continuous water line pulse during float */}
-                    <motion.div 
-                        animate={ phase === 'float' ? { 
-                            scaleX: [1, 1.1, 1],
-                            opacity: [0.6, 0.2, 0.6],
-                            transition: { repeat: Infinity, duration: 2, ease: "easeInOut" }
-                        } : {}}
-                        className="w-full h-full bg-primary"
-                    />
-                </motion.div>
-
-                {/* The one-time Splash Ring expansion */}
-                {phase === 'drop' && (
+                <div className="absolute -bottom-8 w-full flex flex-col items-center">
+                    {/* Primary Water Line */}
                     <motion.div
-                        initial={{ scale: 0.5, opacity: 1, width: '100px', height: '20px' }}
-                        animate={{ scale: 3, opacity: 0 }}
-                        transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
-                        className="absolute -bottom-10 left-1/2 -translate-x-1/2 border-2 border-primary/50 rounded-[100%] pointer-events-none"
-                    />
+                        initial={{ scaleX: 0, opacity: 0 }}
+                        animate={
+                            (phase === 'drop' || phase === 'float') 
+                                ? { scaleX: 1.5, opacity: 1, transition: { duration: 0.6, ease: "easeOut" } } 
+                                : { scaleX: 0, opacity: 0 }
+                        }
+                        className="w-[120%] h-[2px] bg-primary/40 blur-[1px] relative"
+                    >
+                        {/* Continuous water line pulse during float */}
+                        <motion.div 
+                            animate={ phase === 'float' ? { 
+                                scaleX: [1, 1.2, 1],
+                                opacity: [0.8, 0.3, 0.8],
+                                transition: { repeat: Infinity, duration: 3, ease: "easeInOut" }
+                            } : {}}
+                            className="w-full h-full bg-primary shadow-[0_0_15px_rgba(0,122,255,0.8)]"
+                        />
+                    </motion.div>
+
+                    {/* Secondary Ripples (Concentric) */}
+                    {(phase === 'drop' || phase === 'float') && (
+                        <div className="absolute top-0 w-full flex justify-center">
+                            {[0, 1, 2].map((i) => (
+                                <motion.div
+                                    key={`ripple-${i}`}
+                                    initial={{ scaleX: 0, opacity: 0, translateY: i * 8 }}
+                                    animate={{ 
+                                        scaleX: [1.2, 1.6, 1.2],
+                                        opacity: [0.2, 0.1, 0.2],
+                                        translateY: i * 8,
+                                    }}
+                                    transition={{
+                                        repeat: Infinity,
+                                        duration: 4,
+                                        delay: i * 0.8,
+                                        ease: "easeInOut"
+                                    }}
+                                    className="absolute w-[140%] h-[1px] bg-primary/30 blur-[2px]"
+                                />
+                            ))}
+                        </div>
+                    )}
+                </div>
+
+                {/* The Splash Ring expansion - multiple rings now */}
+                {phase === 'drop' && (
+                    <>
+                        {[0, 0.1, 0.2].map((delay, i) => (
+                            <motion.div
+                                key={`splash-ring-${i}`}
+                                initial={{ scale: 0.3, opacity: 1, width: '100px', height: '20px' }}
+                                animate={{ scale: 4 + i, opacity: 0 }}
+                                transition={{ duration: 1.2, ease: "easeOut", delay }}
+                                className="absolute -bottom-10 left-1/2 -translate-x-1/2 border-[3px] border-primary/40 rounded-[100%] pointer-events-none blur-[1px]"
+                            />
+                        ))}
+                    </>
                 )}
             </motion.div>
 
             {/* Background pool illumination that fades in on splash */}
             <motion.div 
                 initial={{ opacity: 0 }}
-                animate={ (phase === 'drop' || phase === 'float') ? { opacity: 0.15 } : { opacity: 0 }}
-                transition={{ duration: 1, delay: 0.2 }}
-                className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-primary to-transparent pointer-events-none"
+                animate={ (phase === 'drop' || phase === 'float') ? { opacity: 0.25 } : { opacity: 0 }}
+                transition={{ duration: 1.5, delay: 0.2 }}
+                className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-primary/30 via-primary/5 to-transparent pointer-events-none"
             />
         </motion.div>
     )
