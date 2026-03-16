@@ -21,19 +21,22 @@ export default function AnimatedSplash() {
     useEffect(() => {
         if (hasSeenSplash) return
 
-        // TIMING: "Quick and Twitchy" - faster snaps and transitions
+        // ORCHESTRATION: One smooth continuous motion
+        // Puzzle snap happens over ~0.8s
         const dropTimer = setTimeout(() => {
             setPhase('drop')
             if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                navigator.vibrate(10) // Light quick haptic
+                navigator.vibrate([10, 5, 10]) // Multi-hit subtle haptic
             }
-        }, 1200) // Much faster puzzle snap
-        const floatTimer = setTimeout(() => setPhase('float'), 1600) 
+        }, 850) // perfectly catch the end of the snap
+        
+        const floatTimer = setTimeout(() => setPhase('float'), 1350) 
+        
         const exitTimer = setTimeout(() => {
             setShouldExit(true)
             globalSplashSeen = true
-            setTimeout(() => setPhase('done'), 400) // Fast fade out
-        }, 2800) // Shorter total wait
+            setTimeout(() => setPhase('done'), 400)
+        }, 3000)
 
         return () => {
              clearTimeout(dropTimer)
@@ -46,23 +49,24 @@ export default function AnimatedSplash() {
 
     // Container controls the drop and float sequence of the whole group
     const dropFloatVariants = {
-        puzzle: { y: 0 },
+        puzzle: { y: 0, scale: 0.95 },
         drop: { 
             y: 110, 
+            scale: 1,
             transition: { 
                 type: "spring" as const, 
-                stiffness: 400, 
-                damping: 20,
-                mass: 1,
+                stiffness: 500, 
+                damping: 25,
+                mass: 0.8,
                 restDelta: 0.001
             } 
         },
         float: { 
-            y: [110, 102, 110],
+            y: [110, 104, 110],
+            rotate: [-0.5, 0.5, -0.5],
             transition: { 
-                repeat: Infinity, 
-                duration: 4, 
-                ease: "easeInOut" as const
+                y: { repeat: Infinity, duration: 4, ease: "easeInOut" },
+                rotate: { repeat: Infinity, duration: 6, ease: "easeInOut" }
             }
         }
     }
@@ -93,9 +97,9 @@ export default function AnimatedSplash() {
             scale: 1,
             transition: {
                 type: "spring" as const,
-                damping: 20,
-                stiffness: 80,
-                mass: 0.5,
+                damping: 15,
+                stiffness: 300,
+                mass: 0.4,
             }
         }
     }
@@ -178,29 +182,29 @@ export default function AnimatedSplash() {
                 {/* The Splash Ring expansion - one-time fast impact rings */}
                 {phase === 'drop' && (
                     <div className="absolute top-[110px] left-1/2 -translate-x-1/2">
-                        {[0, 0.05, 0.1].map((delay, i) => (
+                        {[0, 0.03, 0.08, 0.15].map((delay, i) => (
                             <motion.div
                                 key={`impact-wave-${i}`}
                                 initial={{ width: '40px', height: '10px', opacity: 1 }}
-                                animate={{ width: '800px', height: '180px', opacity: 0 }}
-                                transition={{ duration: 1.2, ease: "easeOut", delay }}
-                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[2px] border-primary/40 rounded-full blur-md pointer-events-none"
+                                animate={{ width: '1000px', height: '250px', opacity: 0 }}
+                                transition={{ duration: 1.5, ease: "easeOut", delay }}
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[1px] border-primary/40 rounded-full blur-md pointer-events-none"
                             />
                         ))}
                         
-                        {/* Splash Droplets/Particles */}
-                        {[...Array(8)].map((_, i) => (
+                        {/* High-fidelity Splash Particles */}
+                        {[...Array(12)].map((_, i) => (
                             <motion.div
                                 key={`particle-${i}`}
                                 initial={{ x: 0, y: 0, opacity: 1, scale: 1 }}
                                 animate={{ 
-                                    x: (i % 2 === 0 ? 1 : -1) * (Math.random() * 60 + 20),
-                                    y: -(Math.random() * 80 + 40),
+                                    x: (Math.random() - 0.5) * 160,
+                                    y: -(Math.random() * 120 + 60),
                                     opacity: 0,
-                                    scale: 0.2
+                                    scale: 0.1
                                 }}
-                                transition={{ duration: 0.8, ease: "easeOut", delay: 0.1 }}
-                                className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-primary rounded-full blur-[1px]"
+                                transition={{ duration: 1, ease: "easeOut", delay: 0.05 }}
+                                className="absolute top-0 left-1/2 w-1.5 h-1.5 bg-primary/80 rounded-full blur-[0.5px] shadow-[0_0_10px_rgba(0,122,255,0.5)]"
                             />
                         ))}
                     </div>
