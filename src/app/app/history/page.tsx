@@ -130,7 +130,7 @@ export default function HistoryPage() {
         <div className="p-6 pt-safe space-y-8 animate-in pb-32 bg-black min-h-screen">
             <header className="flex justify-between items-start mt-6">
                 <div className="space-y-1">
-                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Intelligence Catalog</p>
+                    <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Shift History</p>
                     <h1 className="text-4xl font-black font-outfit text-white tracking-tighter">History.</h1>
                 </div>
                 <div className="w-12 h-12 rounded-[1.5rem] bg-zinc-900 flex items-center justify-center text-primary border border-white/5 shadow-xl">
@@ -356,7 +356,7 @@ export default function HistoryPage() {
             <Modal
                 isOpen={!!selectedShiftId}
                 onClose={() => setSelectedShiftId(null)}
-                title="Shift Intelligence"
+                title="Shift Details"
             >
                 {selectedShift && (() => {
                     const ccTips = parseFloat(selectedShift.tips || 0)

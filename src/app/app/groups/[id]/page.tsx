@@ -1032,7 +1032,7 @@ export default function PartyDetails() {
                             />
                         )}
                         {/* Feed Header */}
-                        <div className="shrink-0 flex items-center justify-between p-4 py-6 border-b border-white/5 bg-zinc-900/40 backdrop-blur-xl">
+                        <div className="shrink-0 flex items-center justify-between px-4 py-3 border-b border-white/5 bg-zinc-900/40 backdrop-blur-xl">
                             <button
                                 onClick={() => {
                                     if (window.location.hash === '#feed') {
@@ -1043,12 +1043,12 @@ export default function PartyDetails() {
                                 }}
                                 className="text-zinc-400 hover:text-white flex items-center gap-1 px-2 py-1 -ml-2 rounded-lg transition-colors hover:bg-white/5"
                             >
-                                <ChevronLeft className="w-5 h-5" />
-                                <span className="text-[10px] font-black uppercase tracking-widest mt-0.5">Party</span>
+                                <ChevronLeft className="w-4 h-4" />
+                                <span className="text-[9px] font-black uppercase tracking-widest mt-0.5">Party</span>
                             </button>
                             <div className="flex items-center gap-2">
                                 <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse shadow-[0_0_10px_rgba(16,185,129,0.5)]"></div>
-                                <span className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Live Intel Feed</span>
+                                <span className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Live Pool Feed</span>
                             </div>
                         </div>
 
@@ -1092,7 +1092,7 @@ export default function PartyDetails() {
                                         <div
                                             key={item.id}
                                             className={cn(
-                                                "p-5 rounded-[2rem] relative transition-all shrink-0 group tap-highlight-transparent touch-pan-y select-none",
+                                                "p-3.5 rounded-2xl relative transition-all shrink-0 group tap-highlight-transparent touch-pan-y select-none",
                                                 isSystem
                                                     ? "bg-zinc-900 border border-primary/20 shadow-[0_4px_30px_rgba(255,255,255,0.02)]"
                                                     : "bg-zinc-900/40 border border-white/5 active:bg-white/5 transition-colors"
@@ -1298,7 +1298,7 @@ export default function PartyDetails() {
                         </div>
 
                         {/* Input Area */}
-                        <div className="shrink-0 p-4 pb-[calc(80px+env(safe-area-inset-bottom))] border-t border-white/5 bg-zinc-900/98 backdrop-blur-3xl shadow-[0_-20px_40px_rgba(0,0,0,0.4)]">
+                        <div className="shrink-0 p-3 pb-[calc(80px+env(safe-area-inset-bottom))] border-t border-white/5 bg-zinc-900/98 backdrop-blur-3xl shadow-[0_-20px_40px_rgba(0,0,0,0.4)]">
                             <form onSubmit={handlePostChat} className="flex flex-col gap-3">
                                 <AnimatePresence>
                                     {pendingMedia && (
@@ -1321,40 +1321,40 @@ export default function PartyDetails() {
                                 </AnimatePresence>
 
                                 {/* Segmented Toggle */}
-                                <div className="flex p-1 bg-black rounded-xl border border-white/10 shadow-inner">
+                                <div className="flex p-0.5 bg-black rounded-lg border border-white/10 shadow-inner">
                                     <button
                                         type="button"
                                         onClick={() => setIsAnonymousPost(false)}
-                                        className={cn("flex-1 py-2 px-3 text-[10px] rounded-lg font-black uppercase tracking-widest transition-all truncate", !isAnonymousPost ? "bg-zinc-800 text-white shadow-md ring-1 ring-white/10" : "text-zinc-500 hover:text-white")}
+                                        className={cn("flex-1 py-1 px-3 text-[9px] rounded-md font-black uppercase tracking-widest transition-all truncate", !isAnonymousPost ? "bg-zinc-800 text-white shadow-md ring-1 ring-white/10" : "text-zinc-500 hover:text-white")}
                                     >
                                         👤 {members.find(m => m.user_id === currentUserId)?.display_name || 'Identity'}
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => setIsAnonymousPost(true)}
-                                        className={cn("flex-1 py-2 px-3 text-[10px] rounded-lg font-black uppercase tracking-widest transition-all", isAnonymousPost ? "bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.3)] ring-1 ring-amber-400" : "text-zinc-500 hover:text-amber-500/50")}
+                                        className={cn("flex-1 py-1 px-3 text-[9px] rounded-md font-black uppercase tracking-widest transition-all", isAnonymousPost ? "bg-amber-500 text-black shadow-[0_0_15px_rgba(245,158,11,0.3)] ring-1 ring-amber-400" : "text-zinc-500 hover:text-amber-500/50")}
                                     >
                                         👻 Ghost
                                     </button>
                                 </div>
 
-                                <div className="flex items-center gap-2 bg-black py-2 px-2.5 rounded-[1.5rem] border border-white/10 shadow-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
+                                <div className="flex items-center gap-2 bg-black py-1.5 px-2 rounded-xl border border-white/10 shadow-xl focus-within:border-primary/50 focus-within:ring-2 focus-within:ring-primary/20 transition-all">
                                     <button
                                         type="button"
                                         onClick={() => setShowGiphyPicker(true)}
-                                        className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
+                                        className="p-2 rounded-lg bg-white/5 text-zinc-500 hover:text-white transition-all active:scale-95 flex items-center justify-center"
                                         title="Post a GIF"
                                     >
-                                        <Film className="w-5 h-5" />
+                                        <Film className="w-4 h-4" />
                                     </button>
                                     <button
                                         type="button"
                                         onClick={() => fileInputRef.current?.click()}
                                         disabled={uploadingMedia}
-                                        className="p-2.5 rounded-xl bg-white/5 text-zinc-500 hover:text-white transition-all active:scale-95 flex items-center justify-center overflow-hidden"
+                                        className="p-2 rounded-lg bg-white/5 text-zinc-500 hover:text-white transition-all active:scale-95 flex items-center justify-center overflow-hidden"
                                         title="Upload a Photo"
                                     >
-                                        {uploadingMedia ? <Loader2 className="w-5 h-5 animate-spin" /> : <Camera className="w-5 h-5" />}
+                                        {uploadingMedia ? <Loader2 className="w-4 h-4 animate-spin" /> : <Camera className="w-4 h-4" />}
                                     </button>
                                     <input
                                         type="file"
@@ -1367,19 +1367,19 @@ export default function PartyDetails() {
                                         type="text"
                                         value={chatInput}
                                         onChange={e => setChatInput(e.target.value)}
-                                        placeholder={isAnonymousPost ? "Whisper into the void..." : "Spill the tea..."}
+                                        placeholder={isAnonymousPost ? "Whisper..." : "Spill the tea..."}
                                         maxLength={280}
-                                        className="flex-1 bg-transparent px-3 text-sm font-outfit font-bold text-white placeholder:text-zinc-600 outline-none"
+                                        className="flex-1 bg-transparent px-2 text-sm font-outfit font-bold text-white placeholder:text-zinc-600 outline-none"
                                     />
                                     <button
                                         type="submit"
                                         disabled={(!chatInput.trim() && !pendingMedia) || postingChat}
                                         className={cn(
-                                            "w-10 h-10 shrink-0 rounded-[1.2rem] flex items-center justify-center transition-all disabled:opacity-50",
+                                            "w-9 h-9 shrink-0 rounded-lg flex items-center justify-center transition-all disabled:opacity-50",
                                             chatInput.trim() || pendingMedia ? "bg-primary text-white shadow-[0_0_15px_rgba(0,122,255,0.4)] hover:scale-105 active:scale-95" : "bg-white/5 text-zinc-600"
                                         )}
                                     >
-                                        <ArrowUpRight className="w-5 h-5" />
+                                        <ArrowUpRight className="w-4 h-4" />
                                     </button>
                                 </div>
                             </form>

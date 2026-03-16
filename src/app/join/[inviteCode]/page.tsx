@@ -106,7 +106,7 @@ export default function JoinGroupPage() {
 
                 <div className="flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-[0.3em] text-zinc-800 pt-10">
                     <Sparkles className="w-2.5 h-2.5" />
-                    Pool Party Intelligence
+                    Pool Party
                 </div>
             </motion.div>
         </div>

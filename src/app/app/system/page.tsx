@@ -28,7 +28,7 @@ export default function SystemAdminPage() {
             // Since we are in development, we'll allow it if the user has the right name/email
             const isAaron = user.email?.includes('aaron') || user.user_metadata?.full_name?.includes('Aaron')
             if (!isAaron && !user.user_metadata?.is_system_admin) {
-                toast.error("Restricted Access: System Intelligence only.")
+                toast.error("Restricted Access: System Admins only.")
                 router.push('/app')
                 return
             }
@@ -67,7 +67,7 @@ export default function SystemAdminPage() {
             <header className="space-y-1 mt-4">
                 <div className="flex items-center gap-2 text-red-500 font-black uppercase text-[10px] tracking-[0.4em]">
                     <Shield className="w-3 h-3" />
-                    Core Intelligence
+                    System Status
                 </div>
                 <h1 className="text-4xl font-black font-outfit text-white tracking-tighter">System Admin.</h1>
             </header>

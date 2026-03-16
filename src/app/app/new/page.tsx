@@ -234,7 +234,7 @@ export default function NewShiftEntry() {
                 colors: ['#007AFF', '#5856D6', '#FF2D55']
             })
 
-            toast.success("Intelligence Logs Updated! 🎉")
+            toast.success("Shift Logs Updated! 🎉")
 
             // ── ACHIEVEMENTS ──
             if (selectedGroupId) {
@@ -412,7 +412,7 @@ export default function NewShiftEntry() {
     return (
         <div className="p-6 space-y-8 animate-in pb-32 max-w-lg mx-auto bg-black min-h-screen no-spinners">
             <header className="space-y-2 mt-4 text-center">
-                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary opacity-90">Session Intelligence</p>
+                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary opacity-90">New Shift</p>
                 <h1 className="text-4xl font-black font-outfit tracking-tighter text-white">New Shift.</h1>
             </header>
 
