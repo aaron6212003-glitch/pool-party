@@ -137,56 +137,53 @@ export default function AnimatedSplash() {
                 </motion.div>
 
                 {/* 
-                    BOUNDLESS ORGANIC RIPPLES
-                    No lines, just soft radial glows that feel like real water
+                    WATER RIPPLES - TRULY ORGANIC
+                    Using radial rings to form clear expanding waves
                 */}
-                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200vw] h-[200vh] pointer-events-none">
+                <div className="absolute top-[120px] left-1/2 -translate-x-1/2 w-0 h-0 pointer-events-none">
                     <AnimatePresence>
                         {(phase === 'drop' || phase === 'float') && (
-                            <>
-                                {[0, 1, 2, 3, 4].map((i) => (
+                            <div className="relative flex justify-center items-center">
+                                {[0, 1, 2, 3].map((i) => (
                                     <motion.div
-                                        key={`boundless-ripple-${i}`}
-                                        initial={{ scale: 0, opacity: 0 }}
+                                        key={`ripple-wave-${i}`}
+                                        initial={{ width: 0, height: 0, opacity: 0 }}
                                         animate={{ 
-                                            scale: [0.2, 1.5],
-                                            opacity: [0.15, 0],
+                                            width: ['0px', '1000px'],
+                                            height: ['0px', '250px'],
+                                            opacity: [0.35, 0],
                                         }}
                                         transition={{
                                             repeat: Infinity,
-                                            duration: 4,
-                                            delay: i * 0.8,
+                                            duration: 5,
+                                            delay: i * 1.25,
                                             ease: "easeOut"
                                         }}
-                                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full rounded-full bg-gradient-to-r from-primary/10 via-primary/5 to-transparent blur-3xl"
+                                        className="absolute rounded-full border-[2px] border-primary/25 blur-[3px]"
                                     />
                                 ))}
-                                
-                                {/* Ambient water shimmer - non-linear, organic */}
+
+                                {/* Organic Center Bloom */}
                                 <motion.div 
-                                    animate={{ 
-                                        scale: [1, 1.1, 1],
-                                        opacity: [0.1, 0.2, 0.1],
-                                        rotate: [0, 5, 0]
-                                    }}
-                                    transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
-                                    className="absolute inset-0 bg-[radial-gradient(circle_at_50%_70%,rgba(0,122,255,0.1)_0%,transparent_70%)]"
+                                    initial={{ scale: 0.5, opacity: 0 }}
+                                    animate={{ scale: 1, opacity: 0.15 }}
+                                    className="absolute w-[700px] h-[350px] bg-primary/20 blur-[90px] rounded-full"
                                 />
-                            </>
+                            </div>
                         )}
                     </AnimatePresence>
                 </div>
 
-                {/* The Splash Ring expansion - multiple soft rings */}
+                {/* The Splash Ring expansion - one-time fast impact rings */}
                 {phase === 'drop' && (
-                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                    <div className="absolute top-[120px] left-1/2 -translate-x-1/2">
                         {[0, 0.05, 0.1].map((delay, i) => (
                             <motion.div
-                                key={`soft-splash-${i}`}
-                                initial={{ scale: 0.1, opacity: 1, width: '200px', height: '200px' }}
-                                animate={{ scale: 3, opacity: 0 }}
-                                transition={{ duration: 0.8, ease: "easeOut", delay }}
-                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[10px] border-primary/20 rounded-full blur-xl pointer-events-none"
+                                key={`impact-wave-${i}`}
+                                initial={{ width: '80px', height: '20px', opacity: 1 }}
+                                animate={{ width: '700px', height: '180px', opacity: 0 }}
+                                transition={{ duration: 0.7, ease: "easeOut", delay }}
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[4px] border-primary/40 rounded-full blur-md pointer-events-none"
                             />
                         ))}
                     </div>
@@ -197,8 +194,8 @@ export default function AnimatedSplash() {
             <motion.div 
                 initial={{ opacity: 0 }}
                 animate={ (phase === 'drop' || phase === 'float') ? { opacity: 0.3 } : { opacity: 0 }}
-                transition={{ duration: 0.5, delay: 0 }}
-                className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-primary/20 to-transparent pointer-events-none"
+                transition={{ duration: 0.6 }}
+                className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-primary/15 to-transparent pointer-events-none"
             />
         </motion.div>
     )
