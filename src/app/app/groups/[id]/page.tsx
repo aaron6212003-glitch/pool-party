@@ -205,7 +205,6 @@ export default function PartyDetails() {
         tipOutLabel: 'Support Pool',
         tipOutMode: 'net_sales' as 'net_sales' | 'cc_tips',
         taxRate: 15,
-        defaultWage: 0,
     })
     const [savingSettings, setSavingSettings] = useState(false)
 
@@ -231,7 +230,6 @@ export default function PartyDetails() {
                 tipOutLabel: s.tipOutLabel || 'Support Pool',
                 tipOutMode: s.tipOutMode || 'net_sales',
                 taxRate: s.taxRate != null ? Math.round(s.taxRate * 100) : 15,
-                defaultWage: s.defaultWage || 0,
             })
         }
         const { data: memberData } = await supabase
@@ -718,7 +716,6 @@ export default function PartyDetails() {
                 tipOutLabel: partySettings.tipOutLabel,
                 tipOutMode: partySettings.tipOutMode,
                 taxRate: partySettings.taxRate / 100,
-                defaultWage: partySettings.defaultWage,
                 timezone: group?.settings?.timezone || 'UTC',
                 enabledTipouts: group?.settings?.enabledTipouts || [],
             }
@@ -1465,23 +1462,6 @@ export default function PartyDetails() {
                                         <div className="flex justify-between text-[8px] font-black text-zinc-700 uppercase tracking-widest">
                                             <span>0%</span><span>20%</span><span>40%</span>
                                         </div>
-                                    </div>
-
-                                    {/* Default Hourly Wage */}
-                                    <div className="space-y-2">
-                                        <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Default Hourly Wage (optional)</label>
-                                        <div className="flex items-center gap-3 bg-black border border-white/5 rounded-2xl px-4 py-3 focus-within:border-primary/40 transition-all">
-                                            <span className="text-zinc-600 font-black font-outfit">$</span>
-                                            <input
-                                                type="number" step="0.25" min="0" max="50"
-                                                value={partySettings.defaultWage || ''}
-                                                onChange={e => setPartySettings(p => ({ ...p, defaultWage: parseFloat(e.target.value) || 0 }))}
-                                                placeholder="0.00"
-                                                className="flex-1 bg-transparent text-white font-black font-outfit text-sm focus:outline-none placeholder:text-zinc-700"
-                                            />
-                                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">/hr</span>
-                                        </div>
-                                        <p className="text-[8px] font-black text-zinc-700 uppercase tracking-widest">Pre-filled on shift entry for this party</p>
                                     </div>
 
                                     <button

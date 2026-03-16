@@ -92,7 +92,6 @@ export default function NewShiftEntry() {
                     setTaxRate(s.taxRate ?? 0.15)
                     setTipOutLabel(s.tipOutLabel || 'Support Pool')
                     setTipOutMode(s.tipOutMode || 'net_sales')
-                    if (s.defaultWage) setHourlyWage(String(s.defaultWage))
                 } else {
                     setNoParties(true)
                 }
@@ -110,7 +109,6 @@ export default function NewShiftEntry() {
             setTaxRate(s.taxRate ?? 0.15)
             setTipOutLabel(s.tipOutLabel || 'Support Pool')
             setTipOutMode(s.tipOutMode || 'net_sales')
-            if (s.defaultWage) setHourlyWage(String(s.defaultWage))
         }
     }
 
