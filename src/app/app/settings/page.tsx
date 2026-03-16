@@ -17,9 +17,6 @@ export default function SettingsPage() {
     const [uploading, setUploading] = useState(false)
     const [shareToLeaderboard, setShareToLeaderboard] = useState(true)
     const [togglingShare, setTogglingShare] = useState(false)
-    const [adminUnlocked, setAdminUnlocked] = useState(false)
-    const [adminPin, setAdminPin] = useState('')
-    const [pinError, setPinError] = useState(false)
     const [loaded, setLoaded] = useState(false)
     const [birthday, setBirthday] = useState('')
     const [workAnniversary, setWorkAnniversary] = useState('')
@@ -36,7 +33,6 @@ export default function SettingsPage() {
     const fileInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
     const supabase = createClient()
-    const ADMIN_PIN = '654321'
     useEffect(() => {
         const init = async () => {
             const { data: { user } } = await supabase.auth.getUser()
@@ -267,68 +263,6 @@ export default function SettingsPage() {
         { id: 'indigo', color: '#6366F1', name: 'Indigo' },
         { id: 'midnight', color: '#334155', name: 'Midnight' },
     ]
-
-    // Owner-only admin actions — only deletes this user's own data
-    const OWNER_ID = 'f46b2098-fcfe-4401-a68c-0d8fdedac90a'
-
-    const handleWipeShifts = async () => {
-        if (!confirm('⚠️ Wipe ALL your shift entries? This resets all your PRs and records. Cannot be undone.')) return
-        if (!confirm('Are you absolutely sure? This is permanent.')) return
-        setLoading(true)
-        try {
-            const { error } = await supabase.from('shift_entries').delete().eq('user_id', user?.id)
-            if (error) throw error
-            toast.success('All shift data wiped.')
-        } catch (e: any) {
-            toast.error(e.message)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleWipeFeedEvents = async () => {
-        if (!confirm('⚠️ Wipe all system notifications (PRs/grades) from every party feed for your account?')) return
-        setLoading(true)
-        try {
-            const { error } = await supabase.from('party_feed').delete().eq('user_id', user?.id).eq('event_type', 'system')
-            if (error) throw error
-            toast.success('Feed system events cleared.')
-        } catch (e: any) {
-            toast.error(e.message)
-        } finally {
-            setLoading(false)
-        }
-    }
-
-    const handleNuclearWipe = async () => {
-        if (!confirm('☢️ NUCLEAR RESET: This will delete ALL shifts for ALL members in ALL parties you own. This cannot be undone.')) return
-        if (!confirm('Last chance — are you absolutely sure? Every single shift in every party you own will be gone.')) return
-        setLoading(true)
-        try {
-            // Fetch all groups this user owns
-            const { data: ownedGroups, error: gErr } = await supabase
-                .from('groups')
-                .select('id')
-                .eq('owner_id', user.id)
-            if (gErr) throw gErr
-            if (!ownedGroups || ownedGroups.length === 0) {
-                toast.error('No parties found where you are owner.')
-                return
-            }
-
-            let wipedCount = 0
-            for (const group of ownedGroups) {
-                const { error: rpcErr } = await supabase.rpc('admin_wipe_group_data', { p_group_id: group.id })
-                if (rpcErr) throw rpcErr
-                wipedCount++
-            }
-            toast.success(`☢️ Nuked ${wipedCount} party${wipedCount > 1 ? 'ies' : ''} — all clean.`)
-        } catch (e: any) {
-            toast.error(e.message)
-        } finally {
-            setLoading(false)
-        }
-    }
 
     const handleHardReset = async () => {
         if (confirm("Are you sure? This will delete all your shift entries.")) {
@@ -680,104 +614,6 @@ export default function SettingsPage() {
                     </motion.div>
                 )}
             </AnimatePresence>
-            {/* Admin Panel — PIN locked */}
-            {
-                user && (
-                    <section className="space-y-3">
-                        <p className="text-[10px] font-black uppercase tracking-[0.4em] text-red-500">🔐 Admin Panel</p>
-                        <div className="rounded-[2rem] border border-red-500/20 bg-red-950/20 p-6 space-y-4">
-                            {!adminUnlocked ? (
-                                <>
-                                    <p className="text-[10px] font-black uppercase tracking-widest text-red-400/60 text-center">Enter PIN to unlock</p>
-                                    <div className="flex justify-center gap-2 mb-2">
-                                        {[0, 1, 2, 3, 4, 5].map(i => (
-                                            <div key={i} className={cn(
-                                                "w-8 h-8 rounded-full border-2 flex items-center justify-center transition-all",
-                                                adminPin.length > i
-                                                    ? pinError ? "border-red-500 bg-red-500" : "border-primary bg-primary"
-                                                    : "border-white/20 bg-white/5"
-                                            )}>
-                                                {adminPin.length > i && !pinError && <div className="w-2 h-2 rounded-full bg-white" />}
-                                            </div>
-                                        ))}
-                                    </div>
-                                    <div className="grid grid-cols-3 gap-2">
-                                        {[1, 2, 3, 4, 5, 6, 7, 8, 9, '', 0, '⌫'].map((k, idx) => (
-                                            <button
-                                                key={idx}
-                                                disabled={k === ''}
-                                                onClick={() => {
-                                                    if (k === '⌫') {
-                                                        setPinError(false)
-                                                        setAdminPin(p => p.slice(0, -1))
-                                                    } else if (typeof k === 'number') {
-                                                        setPinError(false)
-                                                        const next = adminPin + k
-                                                        setAdminPin(next)
-                                                        if (next.length === 6) {
-                                                            if (next === ADMIN_PIN) {
-                                                                setAdminUnlocked(true)
-                                                            } else {
-                                                                setPinError(true)
-                                                                setTimeout(() => { setAdminPin(''); setPinError(false) }, 600)
-                                                            }
-                                                        }
-                                                    }
-                                                }}
-                                                className={cn(
-                                                    "py-3 rounded-2xl text-sm font-black transition-all",
-                                                    k === '' ? "opacity-0 pointer-events-none" : "",
-                                                    k === '⌫' ? "bg-white/5 text-zinc-400 active:bg-white/10" : "bg-white/5 text-white hover:bg-white/10 active:bg-primary/30 active:scale-95"
-                                                )}
-                                            >{k}</button>
-                                        ))}
-                                    </div>
-                                </>
-                            ) : (
-                                <>
-                                    <div className="flex items-center justify-between">
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-red-400/60">Destructive Actions</p>
-                                        <button onClick={() => { setAdminUnlocked(false); setAdminPin('') }} className="text-[9px] text-zinc-600 hover:text-zinc-400 uppercase tracking-widest font-black">🔒 Lock</button>
-                                    </div>
-                                    <button
-                                        onClick={handleWipeShifts}
-                                        disabled={loading}
-                                        className="w-full py-4 px-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-black uppercase tracking-widest hover:bg-red-500/20 active:scale-95 transition-all text-left flex items-center gap-3"
-                                    >
-                                        <span className="text-lg">🗑️</span>
-                                        <div>
-                                            <p>Wipe All My Shifts</p>
-                                            <p className="text-[10px] text-red-400/50 font-normal normal-case tracking-normal mt-0.5">Deletes all shift entries &amp; resets your PRs</p>
-                                        </div>
-                                    </button>
-                                    <button
-                                        onClick={handleWipeFeedEvents}
-                                        disabled={loading}
-                                        className="w-full py-4 px-5 rounded-2xl bg-red-500/10 border border-red-500/30 text-red-400 text-xs font-black uppercase tracking-widest hover:bg-red-500/20 active:scale-95 transition-all text-left flex items-center gap-3"
-                                    >
-                                        <span className="text-lg">🧹</span>
-                                        <div>
-                                            <p>Wipe My Feed Events</p>
-                                            <p className="text-[10px] text-red-400/50 font-normal normal-case tracking-normal mt-0.5">Removes all PR &amp; grade alerts from party feeds</p>
-                                        </div>
-                                    </button>
-                                    <button
-                                        onClick={handleNuclearWipe}
-                                        disabled={loading}
-                                        className="w-full py-4 px-5 rounded-2xl bg-red-900/30 border border-red-600/50 text-red-300 text-xs font-black uppercase tracking-widest hover:bg-red-900/50 active:scale-95 transition-all text-left flex items-center gap-3"
-                                    >
-                                        <span className="text-lg">☢️</span>
-                                        <div>
-                                            <p>Nuclear Reset — Wipe Everyone</p>
-                                            <p className="text-[10px] text-red-300/50 font-normal normal-case tracking-normal mt-0.5">Deletes ALL shifts &amp; PRs for every member in your parties</p>
-                                        </div>
-                                    </button>
-                                </>
-                            )}
-                        </div>
-                    </section>
-                )
-            }
         </div >
     )
 }

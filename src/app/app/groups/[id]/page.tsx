@@ -207,30 +207,14 @@ export default function PartyDetails() {
         taxRate: 15,
     })
     const [savingSettings, setSavingSettings] = useState(false)
-    const [reportedPosts, setReportedPosts] = useState<string[]>([])
-    const [blockedUsers, setBlockedUsers] = useState<string[]>([])
 
-    useEffect(() => {
-        setReportedPosts(JSON.parse(localStorage.getItem('percoco_reported_posts') || '[]'))
-        setBlockedUsers(JSON.parse(localStorage.getItem('percoco_blocked_users') || '[]'))
-    }, [])
-
-    const handleReportPost = (postId: string) => {
-        const next = [...reportedPosts, postId]
-        setReportedPosts(next)
-        localStorage.setItem('percoco_reported_posts', JSON.stringify(next))
-        setActiveReactionPopup(null)
-        toast.success("Content flagged for review and removed.")
+    // Helper for haptic feedback
+    const triggerHaptic = (style: 'light' | 'medium' | 'heavy' = 'light') => {
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+            navigator.vibrate(style === 'heavy' ? 20 : style === 'medium' ? 15 : 10)
+        }
     }
 
-    const handleBlockUser = (userId: string) => {
-        if (!confirm("Block this user? You will no longer see their posts in this feed.")) return
-        const next = [...blockedUsers, userId]
-        setBlockedUsers(next)
-        localStorage.setItem('percoco_blocked_users', JSON.stringify(next))
-        setActiveReactionPopup(null)
-        toast.success("User blocked. Feed updated.")
-    }
 
     const selectedWeekStart = startOfWeek(subWeeks(new Date(), -weekOffset), { weekStartsOn: 1 })
     const selectedWeekEnd = endOfWeek(subWeeks(new Date(), -weekOffset), { weekStartsOn: 1 })
@@ -596,8 +580,8 @@ export default function PartyDetails() {
             if (error) {
                 toast.error('Failed to remove reaction')
                 fetchFeed()
-            } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                navigator.vibrate(10)
+            } else {
+                triggerHaptic('light')
             }
         } else {
             // Optimistic insert
@@ -625,11 +609,12 @@ export default function PartyDetails() {
             if (error) {
                 toast.error('Failed to add reaction')
                 fetchFeed()
-            } else if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                navigator.vibrate(10)
+            } else {
+                triggerHaptic('light')
             }
         }
     }
+
 
     const handlePostChat = async (e?: React.FormEvent) => {
         if (e) e.preventDefault()
@@ -670,6 +655,8 @@ export default function PartyDetails() {
         if (error) {
             toast.error("Failed to post message")
             setFeedItems(prev => prev.filter(i => i.id !== tempId))
+        } else {
+            triggerHaptic('medium')
         }
     }
 
@@ -1071,8 +1058,6 @@ export default function PartyDetails() {
                                 const itemReactions: Record<string, any[]> = {}
 
                                 for (const item of feedItems) {
-                                    if (reportedPosts.includes(item.id) || blockedUsers.includes(item.user_id)) continue
-
                                     if (item.metadata?.type === 'reaction') {
                                         const tId = item.metadata.target_id
                                         if (!itemReactions[tId]) itemReactions[tId] = []
@@ -1120,7 +1105,7 @@ export default function PartyDetails() {
                                                 if (!isSystem) {
                                                     longPressRefs.current[item.id] = setTimeout(() => {
                                                         setActiveReactionPopup(activeReactionPopup === item.id ? null : item.id)
-                                                        if (typeof navigator !== 'undefined' && navigator.vibrate) navigator.vibrate(15)
+                                                        triggerHaptic('medium')
                                                     }, 400) // 400ms long press
                                                 }
                                             }}
@@ -1296,29 +1281,8 @@ export default function PartyDetails() {
                                                                 {emoji}
                                                             </motion.button>
                                                         ))}
-                                                        
-                                                        <div className="w-px bg-white/10 mx-1 my-2" />
-                                                        
-                                                        <motion.button
-                                                            whileHover={{ scale: 1.1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
-                                                            whileTap={{ scale: 0.9 }}
-                                                            className="text-red-400 p-2 hover:bg-red-500/10 rounded-full transition-colors tap-highlight-transparent flex items-center justify-center"
-                                                            onClick={(e) => { e.stopPropagation(); handleReportPost(item.id) }}
-                                                            title="Report Content"
-                                                        >
-                                                            <Flag className="w-4 h-4" />
-                                                        </motion.button>
-                                                        
-                                                        {!isSystem && <motion.button
-                                                            whileHover={{ scale: 1.1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
-                                                            whileTap={{ scale: 0.9 }}
-                                                            className="text-red-500 p-2 hover:bg-red-500/10 rounded-full transition-colors tap-highlight-transparent flex items-center justify-center"
-                                                            onClick={(e) => { e.stopPropagation(); handleBlockUser(item.user_id) }}
-                                                            title="Block User"
-                                                        >
-                                                            <Ban className="w-4 h-4" />
-                                                        </motion.button>}
                                                     </motion.div>
+
                                                 )}
                                             </AnimatePresence>
                                         </div>
