@@ -5,7 +5,7 @@ import { Card, Button, Input, SectionTitle, GlassCard, Badge, cn } from '@/compo
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { LogOut, User, Bell, Shield, ChevronRight, Moon, UserCircle, Settings, Mail, RefreshCw, Smartphone, Camera, Image as ImageIcon } from 'lucide-react'
+import { LogOut, User, Bell, Shield, ChevronRight, Moon, UserCircle, Settings, Mail, RefreshCw, Smartphone, Camera, Image as ImageIcon, UserMinus } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function SettingsPage() {
@@ -83,6 +83,29 @@ export default function SettingsPage() {
         await supabase.auth.signOut()
         router.push('/')
         router.refresh()
+    }
+
+    const handleDeleteAccount = async () => {
+        if (!confirm('🛑 WARNING: This will permanently delete your profile, shifts, and remove you from all parties. Your account cannot be recovered. Are you absolutely sure?')) return
+        if (!confirm('FINAL WARNING: Type "DELETE" to confirm? This is permanent.')) return
+        
+        setLoading(true)
+        try {
+            // Delete user data from public tables (Supabase Auth user remains until admin purges, but data is gone)
+            await supabase.from('shift_entries').delete().eq('user_id', user.id)
+            await supabase.from('group_members').delete().eq('user_id', user.id)
+            await supabase.from('party_feed').delete().eq('user_id', user.id)
+            await supabase.from('user_achievements').delete().eq('user_id', user.id)
+            await supabase.from('profiles').delete().eq('id', user.id)
+            
+            await supabase.auth.signOut()
+            toast.success('Account and data deleted.')
+            router.push('/')
+        } catch (e: any) {
+            toast.error(e.message)
+        } finally {
+            setLoading(false)
+        }
     }
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
@@ -490,15 +513,30 @@ export default function SettingsPage() {
                 </Card>
             </section>
 
-            {/* Sign Out */}
-            <section className="pt-2 pb-2">
+            {/* Sign Out & Danger Zone */}
+            <section className="pt-2 pb-2 space-y-3">
                 <button
                     onClick={handleSignOut}
-                    className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-red-500/10 border border-red-500/10 text-red-500 font-black text-sm uppercase tracking-widest hover:bg-red-500/20 active:scale-[0.98] transition-all"
+                    className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 active:scale-[0.98] transition-all"
                 >
                     <LogOut className="w-4 h-4" />
                     Sign Out
                 </button>
+                
+                <button
+                    onClick={handleDeleteAccount}
+                    className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-red-500/10 border border-red-500/10 text-red-500 font-black text-sm uppercase tracking-widest hover:bg-red-500/20 active:scale-[0.98] transition-all"
+                >
+                    <UserMinus className="w-4 h-4" />
+                    Delete Account
+                </button>
+            </section>
+
+            {/* Legal */}
+            <section className="flex justify-center gap-4 py-4">
+                <a href="/privacy" target="_blank" className="text-[10px] text-zinc-500 uppercase font-black tracking-widest hover:text-white transition-colors">Privacy Policy</a>
+                <span className="text-[10px] text-zinc-700 font-black tracking-widest">•</span>
+                <a href="/terms" target="_blank" className="text-[10px] text-zinc-500 uppercase font-black tracking-widest hover:text-white transition-colors">Terms of Service</a>
             </section>
 
             {/* Version footer */}

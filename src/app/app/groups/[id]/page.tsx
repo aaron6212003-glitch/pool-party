@@ -5,7 +5,7 @@ import { Card, Button, Modal, Badge, cn } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart, Image as ImageIcon, Film, Camera, Search, Loader2, AlertCircle } from 'lucide-react'
+import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart, Image as ImageIcon, Film, Camera, Search, Loader2, AlertCircle, Flag, Ban } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
 import SportsbookTab from '@/components/SportsbookTab'
@@ -207,6 +207,30 @@ export default function PartyDetails() {
         taxRate: 15,
     })
     const [savingSettings, setSavingSettings] = useState(false)
+    const [reportedPosts, setReportedPosts] = useState<string[]>([])
+    const [blockedUsers, setBlockedUsers] = useState<string[]>([])
+
+    useEffect(() => {
+        setReportedPosts(JSON.parse(localStorage.getItem('percoco_reported_posts') || '[]'))
+        setBlockedUsers(JSON.parse(localStorage.getItem('percoco_blocked_users') || '[]'))
+    }, [])
+
+    const handleReportPost = (postId: string) => {
+        const next = [...reportedPosts, postId]
+        setReportedPosts(next)
+        localStorage.setItem('percoco_reported_posts', JSON.stringify(next))
+        setActiveReactionPopup(null)
+        toast.success("Content flagged for review and removed.")
+    }
+
+    const handleBlockUser = (userId: string) => {
+        if (!confirm("Block this user? You will no longer see their posts in this feed.")) return
+        const next = [...blockedUsers, userId]
+        setBlockedUsers(next)
+        localStorage.setItem('percoco_blocked_users', JSON.stringify(next))
+        setActiveReactionPopup(null)
+        toast.success("User blocked. Feed updated.")
+    }
 
     const selectedWeekStart = startOfWeek(subWeeks(new Date(), -weekOffset), { weekStartsOn: 1 })
     const selectedWeekEnd = endOfWeek(subWeeks(new Date(), -weekOffset), { weekStartsOn: 1 })
@@ -1047,6 +1071,8 @@ export default function PartyDetails() {
                                 const itemReactions: Record<string, any[]> = {}
 
                                 for (const item of feedItems) {
+                                    if (reportedPosts.includes(item.id) || blockedUsers.includes(item.user_id)) continue
+
                                     if (item.metadata?.type === 'reaction') {
                                         const tId = item.metadata.target_id
                                         if (!itemReactions[tId]) itemReactions[tId] = []
@@ -1270,6 +1296,28 @@ export default function PartyDetails() {
                                                                 {emoji}
                                                             </motion.button>
                                                         ))}
+                                                        
+                                                        <div className="w-px bg-white/10 mx-1 my-2" />
+                                                        
+                                                        <motion.button
+                                                            whileHover={{ scale: 1.1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+                                                            whileTap={{ scale: 0.9 }}
+                                                            className="text-red-400 p-2 hover:bg-red-500/10 rounded-full transition-colors tap-highlight-transparent flex items-center justify-center"
+                                                            onClick={(e) => { e.stopPropagation(); handleReportPost(item.id) }}
+                                                            title="Report Content"
+                                                        >
+                                                            <Flag className="w-4 h-4" />
+                                                        </motion.button>
+                                                        
+                                                        {!isSystem && <motion.button
+                                                            whileHover={{ scale: 1.1, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+                                                            whileTap={{ scale: 0.9 }}
+                                                            className="text-red-500 p-2 hover:bg-red-500/10 rounded-full transition-colors tap-highlight-transparent flex items-center justify-center"
+                                                            onClick={(e) => { e.stopPropagation(); handleBlockUser(item.user_id) }}
+                                                            title="Block User"
+                                                        >
+                                                            <Ban className="w-4 h-4" />
+                                                        </motion.button>}
                                                     </motion.div>
                                                 )}
                                             </AnimatePresence>

@@ -339,10 +339,20 @@ export default function Dashboard() {
                             )
                         })
                     ) : (
-                        <div className="py-20 text-center bg-zinc-900/20 rounded-[2.5rem] border border-dashed border-white/5">
-                            <Calendar className="w-12 h-12 mx-auto mb-4 text-zinc-800" />
-                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-700">Awaiting Log Data</p>
-                        </div>
+                        <Card className="py-16 px-6 text-center bg-zinc-900/40 rounded-[3rem] border border-dashed border-white/10 space-y-6">
+                            <div className="w-24 h-24 mx-auto bg-primary/5 rounded-[2.5rem] flex items-center justify-center border border-primary/20 shadow-inner">
+                                <Wallet className="w-10 h-10 text-primary opacity-80" />
+                            </div>
+                            <div className="space-y-3">
+                                <h3 className="text-2xl font-black font-outfit tracking-tighter text-white">No Shifts Yet.</h3>
+                                <p className="text-[10px] uppercase tracking-widest text-zinc-500 max-w-[200px] mx-auto leading-relaxed">Join a work party and log your first shift to unlock intelligence.</p>
+                            </div>
+                            <div className="pt-2">
+                                <Link href="/app/groups" className="inline-block py-4 px-8 rounded-2xl bg-white/5 border border-white/10 text-[10px] font-black uppercase tracking-widest text-white hover:bg-white/10 active:scale-95 transition-all">
+                                    Join a Party
+                                </Link>
+                            </div>
+                        </Card>
                     )}
                 </div>
             </section>
