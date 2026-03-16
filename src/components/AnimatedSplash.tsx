@@ -1,6 +1,6 @@
 "use client"
 
-import { motion } from 'framer-motion'
+import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
 
 let globalSplashSeen = false
@@ -21,19 +21,19 @@ export default function AnimatedSplash() {
     useEffect(() => {
         if (hasSeenSplash) return
 
-        // Timeline for the animation sequence
+        // TIMING: "Quick and Twitchy" - faster snaps and transitions
         const dropTimer = setTimeout(() => {
             setPhase('drop')
             if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                navigator.vibrate(20) // Heavy haptic on drop splash
+                navigator.vibrate(10) // Light quick haptic
             }
-        }, 1800) // Faster puzzle snap
-        const floatTimer = setTimeout(() => setPhase('float'), 2400) // Splash float
+        }, 1200) // Much faster puzzle snap
+        const floatTimer = setTimeout(() => setPhase('float'), 1600) 
         const exitTimer = setTimeout(() => {
             setShouldExit(true)
             globalSplashSeen = true
-            setTimeout(() => setPhase('done'), 800) // Wait for fade out animation
-        }, 3600) // Total time before fading out
+            setTimeout(() => setPhase('done'), 400) // Fast fade out
+        }, 2800) // Shorter total wait
 
         return () => {
              clearTimeout(dropTimer)
@@ -137,76 +137,68 @@ export default function AnimatedSplash() {
                 </motion.div>
 
                 {/* 
-                    WATER LINE & RIPPLE SPLASH 
-                    Organic flowing effect instead of a harsh line
+                    BOUNDLESS ORGANIC RIPPLES
+                    No lines, just soft radial glows that feel like real water
                 */}
-                <div className="absolute -bottom-10 w-full flex flex-col items-center">
-                    {/* Primary Glow Area (Replaces straight line) */}
-                    <motion.div
-                        initial={{ scaleX: 0, opacity: 0 }}
-                        animate={
-                            (phase === 'drop' || phase === 'float') 
-                                ? { scaleX: 2.2, opacity: 1, transition: { duration: 1, ease: "easeOut" } } 
-                                : { scaleX: 0, opacity: 0 }
-                        }
-                        className="w-full h-[6px] bg-gradient-to-r from-transparent via-primary/40 to-transparent blur-[6px] relative"
-                    >
-                        <motion.div 
-                            animate={ phase === 'float' ? { 
-                                opacity: [0.6, 0.2, 0.6],
-                                transition: { repeat: Infinity, duration: 4, ease: "easeInOut" }
-                            } : {}}
-                            className="w-full h-full bg-primary/30"
-                        />
-                    </motion.div>
-
-                    {/* Concentric Organic Ripples */}
-                    {(phase === 'drop' || phase === 'float') && (
-                        <div className="absolute top-2 w-full flex justify-center">
-                            {[0, 1, 2, 3, 4].map((i) => (
-                                <motion.div
-                                    key={`ripple-${i}`}
-                                    initial={{ scaleX: 1, opacity: 0, translateY: i * 14 }}
+                <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[200vw] h-[200vh] pointer-events-none">
+                    <AnimatePresence>
+                        {(phase === 'drop' || phase === 'float') && (
+                            <>
+                                {[0, 1, 2, 3, 4].map((i) => (
+                                    <motion.div
+                                        key={`boundless-ripple-${i}`}
+                                        initial={{ scale: 0, opacity: 0 }}
+                                        animate={{ 
+                                            scale: [0.2, 1.5],
+                                            opacity: [0.15, 0],
+                                        }}
+                                        transition={{
+                                            repeat: Infinity,
+                                            duration: 4,
+                                            delay: i * 0.8,
+                                            ease: "easeOut"
+                                        }}
+                                        className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-full h-full rounded-full bg-gradient-to-r from-primary/10 via-primary/5 to-transparent blur-3xl"
+                                    />
+                                ))}
+                                
+                                {/* Ambient water shimmer - non-linear, organic */}
+                                <motion.div 
                                     animate={{ 
-                                        scaleX: [1, 2.2, 1],
-                                        opacity: [0.12, 0.04, 0.12],
-                                        translateY: i * 14,
+                                        scale: [1, 1.1, 1],
+                                        opacity: [0.1, 0.2, 0.1],
+                                        rotate: [0, 5, 0]
                                     }}
-                                    transition={{
-                                        repeat: Infinity,
-                                        duration: 6 + i,
-                                        delay: i * 1.5,
-                                        ease: "easeInOut"
-                                    }}
-                                    className="absolute w-[200%] h-[3px] bg-primary/20 blur-[5px]"
+                                    transition={{ repeat: Infinity, duration: 6, ease: "easeInOut" }}
+                                    className="absolute inset-0 bg-[radial-gradient(circle_at_50%_70%,rgba(0,122,255,0.1)_0%,transparent_70%)]"
                                 />
-                            ))}
-                        </div>
-                    )}
+                            </>
+                        )}
+                    </AnimatePresence>
                 </div>
 
-                {/* The Splash Ring expansion - multiple rings now */}
+                {/* The Splash Ring expansion - multiple soft rings */}
                 {phase === 'drop' && (
-                    <>
-                        {[0, 0.1, 0.2].map((delay, i) => (
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                        {[0, 0.05, 0.1].map((delay, i) => (
                             <motion.div
-                                key={`splash-ring-${i}`}
-                                initial={{ scale: 0.3, opacity: 1, width: '100px', height: '20px' }}
-                                animate={{ scale: 4 + i, opacity: 0 }}
-                                transition={{ duration: 1.2, ease: "easeOut", delay }}
-                                className="absolute -bottom-10 left-1/2 -translate-x-1/2 border-[3px] border-primary/40 rounded-[100%] pointer-events-none blur-[1px]"
+                                key={`soft-splash-${i}`}
+                                initial={{ scale: 0.1, opacity: 1, width: '200px', height: '200px' }}
+                                animate={{ scale: 3, opacity: 0 }}
+                                transition={{ duration: 0.8, ease: "easeOut", delay }}
+                                className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 border-[10px] border-primary/20 rounded-full blur-xl pointer-events-none"
                             />
                         ))}
-                    </>
+                    </div>
                 )}
             </motion.div>
 
-            {/* Background pool illumination that fades in on splash */}
+            {/* Background pool illumination */}
             <motion.div 
                 initial={{ opacity: 0 }}
-                animate={ (phase === 'drop' || phase === 'float') ? { opacity: 0.25 } : { opacity: 0 }}
-                transition={{ duration: 1.5, delay: 0.2 }}
-                className="absolute bottom-0 left-0 right-0 h-2/3 bg-gradient-to-t from-primary/30 via-primary/5 to-transparent pointer-events-none"
+                animate={ (phase === 'drop' || phase === 'float') ? { opacity: 0.3 } : { opacity: 0 }}
+                transition={{ duration: 0.5, delay: 0 }}
+                className="absolute inset-x-0 bottom-0 h-1/2 bg-gradient-to-t from-primary/20 to-transparent pointer-events-none"
             />
         </motion.div>
     )

@@ -14,7 +14,7 @@ export const Card = ({ children, className, delay = 0, onClick }: { children: Re
     <motion.div
         initial={{ opacity: 0, y: 15 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.4, delay, ease: [0.23, 1, 0.32, 1] }}
+        transition={{ duration: 0.25, delay, ease: [0.23, 1, 0.32, 1] }}
         className={cn("bg-zinc-900 border border-white/5 rounded-3xl shadow-2xl p-6", className)}
         onClick={onClick}
     >
@@ -26,7 +26,7 @@ export const GlassCard = ({ children, className, delay = 0 }: { children: React.
     <motion.div
         initial={{ opacity: 0, scale: 0.98 }}
         animate={{ opacity: 1, scale: 1 }}
-        transition={{ duration: 0.4, delay }}
+        transition={{ duration: 0.25, delay }}
         className={cn("bg-zinc-900/80 backdrop-blur-xl border border-white/10 rounded-[2rem] p-6 shadow-2xl", className)}
     >
         {children}
@@ -119,9 +119,10 @@ export const Modal = ({ isOpen, onClose, title, children }: { isOpen: boolean, o
         {isOpen && (
             <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 bg-black/85 backdrop-blur-xl">
                 <motion.div
-                    initial={{ scale: 0.95, opacity: 0, y: 30 }}
+                    initial={{ scale: 0.9, opacity: 0, y: 20 }}
                     animate={{ scale: 1, opacity: 1, y: 0 }}
-                    exit={{ scale: 0.95, opacity: 0, y: 30 }}
+                    exit={{ scale: 0.9, opacity: 0, y: 20 }}
+                    transition={{ type: "spring", damping: 25, stiffness: 350 }}
                     className="w-full max-w-sm max-h-[90vh] flex flex-col"
                 >
                     <Card className="!p-5 sm:!p-8 shadow-[0_32px_64px_-16px_rgba(0,0,0,0.6)] bg-zinc-900 border-white/10 rounded-[2rem] sm:rounded-[3rem] space-y-5 sm:space-y-8 relative overflow-hidden flex flex-col h-full">
