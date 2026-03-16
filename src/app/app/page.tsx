@@ -157,32 +157,62 @@ export default function Dashboard() {
 
             {/* PAYCHECK ESTIMATOR */}
             <section>
-                <div className="relative">
-                    <div className="absolute -inset-1 rounded-[2.5rem] blur-3xl bg-primary/20 opacity-30 pointer-events-none"></div>
-                    <Card className="relative !p-0 bg-zinc-900 border-white/10 rounded-[2.5rem] shadow-3xl overflow-hidden">
+                <div className="relative group">
+                    <div className="absolute -inset-1 rounded-[2.5rem] blur-3xl bg-gradient-to-r from-primary/30 to-indigo-500/30 opacity-40 group-hover:opacity-60 transition-opacity pointer-events-none"></div>
+                    <Card className="relative !p-0 bg-zinc-900/90 backdrop-blur-3xl border-white/10 rounded-[2.5rem] shadow-2xl overflow-hidden">
+                        
+                        {/* Premium Abstract Background */}
+                        <div className="absolute inset-0 overflow-hidden pointer-events-none opacity-20">
+                            <div className="absolute -right-12 -top-12 w-64 h-64 bg-primary/20 rounded-full blur-[60px] animate-pulse"></div>
+                            <div className="absolute right-10 bottom-0 w-48 h-48 bg-indigo-500/10 rounded-full blur-[40px]"></div>
+                            <svg className="absolute right-0 top-0 h-full w-1/2 text-white/5" viewBox="0 0 100 100" preserveAspectRatio="none">
+                                <path d="M100 0 L100 100 L0 100 C 30 50 70 50 100 0 Z" fill="currentColor" />
+                            </svg>
+                        </div>
 
-                        {/* Tappable header */}
+                        {/* Tappable Header */}
                         <button
                             onClick={() => setPaycheckExpanded(e => !e)}
-                            className="w-full text-left p-10 pb-8 relative"
+                            className="w-full text-left p-9 relative"
                         >
-                            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none">
-                                <Banknote className="w-48 h-48" />
-                            </div>
-                            <div className="space-y-2 relative z-10">
+                            <div className="space-y-4 relative z-10">
                                 <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-2">
-                                        <Wallet className="w-3 h-3 text-primary" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.4em] text-zinc-500">Expected Deposit</span>
+                                    <div className="flex items-center gap-2.5">
+                                        <div className="w-8 h-8 rounded-xl bg-primary/20 flex items-center justify-center border border-primary/30">
+                                            <Wallet className="w-4 h-4 text-primary" />
+                                        </div>
+                                        <div>
+                                            <p className="text-[10px] font-black uppercase tracking-[0.3em] text-zinc-500">Expected Deposit</p>
+                                            <div className="flex items-center gap-1.5 mt-0.5">
+                                                <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></div>
+                                                <span className="text-[9px] font-bold text-emerald-500/80 uppercase tracking-widest">Live Intel</span>
+                                            </div>
+                                        </div>
                                     </div>
-                                    <Badge className={cn("border-none text-[8px] font-black uppercase tracking-widest transition-colors", paycheckExpanded ? "bg-primary/20 text-primary" : "bg-white/5 text-zinc-600")}>
-                                        {paycheckExpanded ? 'Hide' : 'Breakdown'}
-                                    </Badge>
+                                    <div className={cn(
+                                        "px-4 py-2 rounded-full text-[9px] font-black uppercase tracking-widest transition-all border",
+                                        paycheckExpanded 
+                                            ? "bg-primary text-white border-primary shadow-lg shadow-primary/20" 
+                                            : "bg-white/5 text-zinc-400 border-white/10 hover:bg-white/10"
+                                    )}>
+                                        {paycheckExpanded ? 'Close Details' : 'Breakdown'}
+                                    </div>
                                 </div>
-                                <h2 className="text-7xl font-black font-outfit text-white tracking-tighter leading-none">
-                                    ${Math.floor(digitalDeposit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                                </h2>
-                                <p className="text-[9px] font-black uppercase text-zinc-600 tracking-widest pt-1">Excludes cash in hand · resets Monday</p>
+
+                                <div className="flex items-baseline gap-1">
+                                    <span className="text-4xl font-black font-outfit text-primary/40">$</span>
+                                    <h2 className="text-8xl font-black font-outfit text-white tracking-tighter leading-none bg-clip-text text-transparent bg-gradient-to-br from-white via-white to-white/60">
+                                        {Math.floor(digitalDeposit).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                    </h2>
+                                </div>
+
+                                <div className="flex items-center gap-3 pt-2">
+                                    <div className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/5 flex items-center gap-2">
+                                        <div className="w-1 h-1 rounded-full bg-indigo-500"></div>
+                                        <p className="text-[9px] font-black uppercase text-zinc-500 tracking-widest italic">Est. Net Profit</p>
+                                    </div>
+                                    <p className="text-[8px] font-bold text-zinc-700 uppercase tracking-[0.2em]">Excludes Cash in Hand</p>
+                                </div>
                             </div>
                         </button>
 

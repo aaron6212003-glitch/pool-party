@@ -1021,7 +1021,7 @@ export default function PartyDetails() {
 
                 {/* ── FEED TAB ── */}
                 {activeTab === 'feed' && (
-                    <div className="fixed inset-0 z-[100] bg-black flex flex-col h-[100dvh] w-full max-w-md mx-auto overflow-hidden overscroll-none pt-safe">
+                    <div className="fixed inset-0 z-[1000] bg-black flex flex-col h-[100dvh] w-full max-w-md mx-auto overflow-hidden overscroll-none pt-safe pb-safe">
                         {/* Transparent overlay to dismiss reaction popups by tapping anywhere */}
                         {activeReactionPopup && (
                             <div
@@ -1297,7 +1297,7 @@ export default function PartyDetails() {
                         </div>
 
                         {/* Input Area */}
-                        <div className="shrink-0 p-4 border-t border-white/5 bg-zinc-900/80 backdrop-blur-2xl">
+                        <div className="shrink-0 p-4 pb-safe border-t border-white/5 bg-zinc-900/90 backdrop-blur-3xl">
                             <form onSubmit={handlePostChat} className="flex flex-col gap-3">
                                 <AnimatePresence>
                                     {pendingMedia && (
