@@ -74,7 +74,7 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
     return (
         <div className="flex flex-col min-h-screen bg-[var(--background)]">
             <AnimatedSplash />
-            <div className="flex-1 pb-32 overflow-y-auto w-full">
+            <div className="flex-1 pb-32 overflow-y-auto w-full scroll-container">
                 {children}
             </div>
 

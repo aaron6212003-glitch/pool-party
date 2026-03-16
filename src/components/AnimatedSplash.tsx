@@ -120,7 +120,7 @@ export default function AnimatedSplash() {
                     animate="visible"
                     className="flex text-[13vw] sm:text-7xl font-black font-outfit tracking-tighter"
                 >
-                    <div className="flex mr-4 text-white">
+                    <div className="flex mr-4 text-primary">
                         {word1.map((letter, i) => (
                             <motion.span key={`pool-${i}`} custom={i} variants={letterVariants} className="inline-block origin-bottom">
                                 {letter}
