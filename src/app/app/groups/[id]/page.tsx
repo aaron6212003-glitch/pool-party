@@ -5,7 +5,7 @@ import { Card, Button, Modal, Badge, cn } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart, Image as ImageIcon, Film, Camera, Search, Loader2 } from 'lucide-react'
+import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart, Image as ImageIcon, Film, Camera, Search, Loader2, AlertCircle } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
 import SportsbookTab from '@/components/SportsbookTab'
@@ -198,6 +198,16 @@ export default function PartyDetails() {
     const [uploadingMedia, setUploadingMedia] = useState(false)
     const [pendingMedia, setPendingMedia] = useState<{ url: string, type: 'image' | 'gif' } | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+    const [showDeletePartyModal, setShowDeletePartyModal] = useState(false)
+    const [deletingParty, setDeletingParty] = useState(false)
+    const [partySettings, setPartySettings] = useState({
+        supportPct: 5,
+        tipOutLabel: 'Support Pool',
+        tipOutMode: 'net_sales' as 'net_sales' | 'cc_tips',
+        taxRate: 15,
+        defaultWage: 0,
+    })
+    const [savingSettings, setSavingSettings] = useState(false)
 
     const selectedWeekStart = startOfWeek(subWeeks(new Date(), -weekOffset), { weekStartsOn: 1 })
     const selectedWeekEnd = endOfWeek(subWeeks(new Date(), -weekOffset), { weekStartsOn: 1 })
@@ -213,6 +223,17 @@ export default function PartyDetails() {
             .from('groups').select('*').eq('id', id).single()
         if (groupError) { toast.error('Could not find this party'); router.push('/app/groups'); return }
         setGroup(groupData)
+        // Sync party settings
+        if (groupData?.settings) {
+            const s = groupData.settings
+            setPartySettings({
+                supportPct: s.supportPct != null ? Math.round(s.supportPct * 100) : 5,
+                tipOutLabel: s.tipOutLabel || 'Support Pool',
+                tipOutMode: s.tipOutMode || 'net_sales',
+                taxRate: s.taxRate != null ? Math.round(s.taxRate * 100) : 15,
+                defaultWage: s.defaultWage || 0,
+            })
+        }
         const { data: memberData } = await supabase
             .from('group_members')
             .select('*')
@@ -689,6 +710,50 @@ export default function PartyDetails() {
     }
 
 
+    const handleSavePartySettings = async () => {
+        setSavingSettings(true)
+        try {
+            const settingsPayload = {
+                supportPct: partySettings.supportPct / 100,
+                tipOutLabel: partySettings.tipOutLabel,
+                tipOutMode: partySettings.tipOutMode,
+                taxRate: partySettings.taxRate / 100,
+                defaultWage: partySettings.defaultWage,
+                timezone: group?.settings?.timezone || 'UTC',
+                enabledTipouts: group?.settings?.enabledTipouts || [],
+            }
+            const { error } = await supabase.from('groups').update({ settings: settingsPayload }).eq('id', id)
+            if (error) throw error
+            setGroup((prev: any) => ({ ...prev, settings: settingsPayload }))
+            toast.success('Party settings saved!')
+        } catch (e: any) {
+            toast.error(e.message)
+        } finally {
+            setSavingSettings(false)
+        }
+    }
+
+    const handleDeleteParty = async () => {
+        setDeletingParty(true)
+        try {
+            // Delete shift entries for this group
+            await supabase.from('shift_entries').delete().eq('group_id', id)
+            // Delete feed items
+            await supabase.from('party_feed').delete().eq('group_id', id)
+            // Delete members
+            await supabase.from('group_members').delete().eq('group_id', id)
+            // Delete the group itself
+            const { error } = await supabase.from('groups').delete().eq('id', id)
+            if (error) throw error
+            toast.success('Party dissolved.')
+            router.push('/app/groups')
+        } catch (e: any) {
+            toast.error(e.message)
+            setDeletingParty(false)
+        }
+        setShowDeletePartyModal(false)
+    }
+
     if (loading || !group) {
         return (
             <div className="min-h-screen bg-black flex flex-col items-center justify-center space-y-4 px-8">
@@ -759,9 +824,7 @@ export default function PartyDetails() {
                     {[
                         { id: 'leaderboard', icon: Trophy, label: 'Stats' },
                         { id: 'feed', icon: BarChart3, label: 'Feed' },
-                        { id: 'sportsbook', icon: () => <span className="text-base leading-none mb-1">🎰</span>, label: 'Bets' },
                         { id: 'settings', icon: Settings, label: 'Manage' },
-                        { id: 'achievements', icon: Medal, label: 'Medals' },
                     ].map(tab => (
                         <button
                             key={tab.id}
@@ -1329,6 +1392,109 @@ export default function PartyDetails() {
                                     <p className="text-[8px] font-black uppercase tracking-widest text-zinc-600 opacity-80">Admin access granted</p>
                                 </div>
 
+                                {/* Party Settings */}
+                                <Card className="!p-6 bg-zinc-900/40 border-white/5 rounded-3xl space-y-6">
+                                    <div className="flex items-center justify-between">
+                                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-primary">Party Settings</p>
+                                        <Badge className="bg-primary/10 text-primary border-none text-[8px] font-black">Per-Restaurant Config</Badge>
+                                    </div>
+
+                                    {/* Tip Out % */}
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-xs font-black text-zinc-400 uppercase tracking-widest">Tip Out %</label>
+                                            <span className="text-lg font-black font-outfit text-primary">{partySettings.supportPct}%</span>
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="30" step="0.5"
+                                            value={partySettings.supportPct}
+                                            onChange={e => setPartySettings(p => ({ ...p, supportPct: parseFloat(e.target.value) }))}
+                                            className="w-full accent-primary"
+                                        />
+                                        <div className="flex justify-between text-[8px] font-black text-zinc-700 uppercase tracking-widest">
+                                            <span>0%</span><span>15%</span><span>30%</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Tip Out Label */}
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Tip Out Label</label>
+                                        <input
+                                            type="text"
+                                            value={partySettings.tipOutLabel}
+                                            onChange={e => setPartySettings(p => ({ ...p, tipOutLabel: e.target.value }))}
+                                            placeholder="e.g. Support Pool, Bar Back, House"
+                                            className="w-full bg-black border border-white/5 rounded-2xl px-4 py-3 text-sm font-black text-white placeholder:text-zinc-700 focus:outline-none focus:border-primary/40 transition-all"
+                                        />
+                                    </div>
+
+                                    {/* Tip Out Mode */}
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Tip Out Calculated On</label>
+                                        <div className="flex gap-2">
+                                            {[{ val: 'net_sales' as const, label: '% of Net Sales' }, { val: 'cc_tips' as const, label: '% of CC Tips' }].map(opt => (
+                                                <button
+                                                    key={opt.val}
+                                                    type="button"
+                                                    onClick={() => setPartySettings(p => ({ ...p, tipOutMode: opt.val }))}
+                                                    className={cn(
+                                                        'flex-1 py-2.5 rounded-xl text-[9px] font-black uppercase tracking-widest transition-all border',
+                                                        partySettings.tipOutMode === opt.val
+                                                            ? 'bg-primary text-white border-primary shadow-lg shadow-primary/20'
+                                                            : 'bg-black text-zinc-600 border-white/5 hover:text-zinc-300'
+                                                    )}
+                                                >
+                                                    {opt.label}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    {/* Tax Rate */}
+                                    <div className="space-y-3">
+                                        <div className="flex justify-between items-center">
+                                            <label className="text-xs font-black text-zinc-400 uppercase tracking-widest">Est. Tax Rate</label>
+                                            <span className="text-lg font-black font-outfit text-indigo-400">{partySettings.taxRate}%</span>
+                                        </div>
+                                        <input
+                                            type="range" min="0" max="40" step="1"
+                                            value={partySettings.taxRate}
+                                            onChange={e => setPartySettings(p => ({ ...p, taxRate: parseFloat(e.target.value) }))}
+                                            className="w-full accent-indigo-500"
+                                        />
+                                        <div className="flex justify-between text-[8px] font-black text-zinc-700 uppercase tracking-widest">
+                                            <span>0%</span><span>20%</span><span>40%</span>
+                                        </div>
+                                    </div>
+
+                                    {/* Default Hourly Wage */}
+                                    <div className="space-y-2">
+                                        <label className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Default Hourly Wage (optional)</label>
+                                        <div className="flex items-center gap-3 bg-black border border-white/5 rounded-2xl px-4 py-3 focus-within:border-primary/40 transition-all">
+                                            <span className="text-zinc-600 font-black font-outfit">$</span>
+                                            <input
+                                                type="number" step="0.25" min="0" max="50"
+                                                value={partySettings.defaultWage || ''}
+                                                onChange={e => setPartySettings(p => ({ ...p, defaultWage: parseFloat(e.target.value) || 0 }))}
+                                                placeholder="0.00"
+                                                className="flex-1 bg-transparent text-white font-black font-outfit text-sm focus:outline-none placeholder:text-zinc-700"
+                                            />
+                                            <span className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">/hr</span>
+                                        </div>
+                                        <p className="text-[8px] font-black text-zinc-700 uppercase tracking-widest">Pre-filled on shift entry for this party</p>
+                                    </div>
+
+                                    <button
+                                        type="button"
+                                        onClick={handleSavePartySettings}
+                                        disabled={savingSettings}
+                                        className="w-full py-4 rounded-2xl bg-primary text-white font-black text-sm uppercase tracking-widest hover:bg-primary/90 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                                    >
+                                        <Check className="w-5 h-5" />
+                                        {savingSettings ? 'Saving...' : 'Save Settings'}
+                                    </button>
+                                </Card>
+
                                 {/* Invite Code */}
                                 <Card className={`!p-6 bg-zinc-900/40 border-white/5 rounded-3xl space-y-4 transition-all ${editingCode ? 'ring-2 ring-primary/40' : ''}`}>
                                     <div className="flex items-center justify-between">
@@ -1436,6 +1602,18 @@ export default function PartyDetails() {
                                         ))}
                                     </div>
                                 </Card>
+
+                                {/* Delete Party */}
+                                <div className="pt-4 border-t border-red-500/10">
+                                    <button
+                                        onClick={() => setShowDeletePartyModal(true)}
+                                        className="w-full py-5 rounded-3xl bg-red-500/10 border border-red-500/20 text-red-500 font-black text-sm uppercase tracking-widest hover:bg-red-500/20 transition-all flex items-center justify-center gap-3"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                        Delete Party
+                                    </button>
+                                    <p className="text-[8px] font-black uppercase tracking-widest text-zinc-700 text-center mt-3">This will permanently erase all shift history and members</p>
+                                </div>
                             </div>
                         )}
                     </div>
@@ -1674,6 +1852,39 @@ export default function PartyDetails() {
                             </div>
                         </div>
                     )}
+                </div>
+            </Modal>
+
+            {/* DELETE PARTY MODAL */}
+            <Modal isOpen={showDeletePartyModal} onClose={() => setShowDeletePartyModal(false)} title="Delete Party?">
+                <div className="space-y-6">
+                    <div className="flex items-start gap-4 p-5 bg-red-500/5 border border-red-500/15 rounded-2xl">
+                        <AlertCircle className="w-8 h-8 text-red-500 shrink-0 mt-0.5" />
+                        <div className="space-y-1">
+                            <p className="text-sm font-black text-white">This cannot be undone.</p>
+                            <p className="text-xs text-zinc-400 font-bold leading-relaxed">
+                                All shift history, member data, and feed posts for <span className="text-white">{group?.name}</span> will be permanently erased. All members will lose access.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="space-y-3">
+                        <p className="text-[9px] font-black uppercase tracking-[0.3em] text-zinc-600 text-center">Are you absolutely sure?</p>
+                        <button
+                            onClick={handleDeleteParty}
+                            disabled={deletingParty}
+                            className="w-full py-5 rounded-2xl bg-red-500 text-white font-black text-sm uppercase tracking-widest hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-3"
+                        >
+                            <Trash2 className="w-5 h-5" />
+                            {deletingParty ? 'Dissolving...' : 'Yes, Permanently Delete'}
+                        </button>
+                        <button
+                            onClick={() => setShowDeletePartyModal(false)}
+                            className="w-full py-4 rounded-2xl bg-zinc-900 text-zinc-400 font-black text-xs uppercase tracking-widest hover:bg-zinc-800 transition-colors"
+                        >
+                            Cancel
+                        </button>
+                    </div>
                 </div>
             </Modal>
         </div >

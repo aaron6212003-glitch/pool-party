@@ -1,11 +1,12 @@
 "use client"
 
 import { useState, useEffect, useRef } from 'react'
+import Link from 'next/link'
 import { Card, Button, SectionTitle, GlassCard, Badge, cn, Modal } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Calculator, Save, DollarSign, Calendar as CalendarIcon, Clock, ChevronDown, UserCircle, Banknote, Timer, Info } from 'lucide-react'
+import { Calculator, Save, DollarSign, Calendar as CalendarIcon, Clock, ChevronDown, UserCircle, Banknote, Timer, Info, UsersRound, LayoutGrid } from 'lucide-react'
 import confetti from 'canvas-confetti'
 import { format, eachDayOfInterval, subDays, isSameDay, getDaysInMonth, setMonth, setDate as setDay, setYear, getYear, getMonth, getDate, startOfWeek, endOfWeek } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
@@ -23,10 +24,14 @@ export default function NewShiftEntry() {
     const [hourlyWage, setHourlyWage] = useState('')
 
     const [supportPct, setSupportPct] = useState(0.05)
+    const [taxRate, setTaxRate] = useState(0.15)
+    const [tipOutLabel, setTipOutLabel] = useState('Support Pool')
+    const [tipOutMode, setTipOutMode] = useState<'net_sales' | 'cc_tips'>('net_sales')
     const [groups, setGroups] = useState<any[]>([])
-    const [selectedGroupId, setSelectedGroupId] = useState('individual')
+    const [selectedGroupId, setSelectedGroupId] = useState('')
     const [loading, setLoading] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
+    const [noParties, setNoParties] = useState(false)
     const router = useRouter()
     const supabase = createClient()
 
@@ -54,10 +59,14 @@ export default function NewShiftEntry() {
     const m = parseInt(minutesVal) || 0
     const nHours = h + (m / 60)
 
-    const tipOutAmount = nSales > 0 ? (nSales * supportPct).toFixed(2) : '0.00'
+    const tipOutAmount = nSales > 0
+        ? tipOutMode === 'cc_tips'
+            ? (nTips * supportPct).toFixed(2)
+            : (nSales * supportPct).toFixed(2)
+        : '0.00'
     const grossTipsTotal = nTips + nCash
     const preTaxEarnings = grossTipsTotal - parseFloat(tipOutAmount)
-    const postTaxEarnings = preTaxEarnings * 0.85 // 15% TAX
+    const postTaxEarnings = preTaxEarnings * (1 - taxRate) // dynamic tax
     const hourlyRate = (nHours > 0) ? (preTaxEarnings / nHours).toFixed(2) : '0.00'
     const nWage = parseFloat(hourlyWage) || 0
     const wageEarnings = nWage * nHours
@@ -78,7 +87,14 @@ export default function NewShiftEntry() {
                 setGroups(fetchedGroups)
                 if (fetchedGroups.length > 0) {
                     setSelectedGroupId(fetchedGroups[0].id)
-                    setSupportPct(fetchedGroups[0].settings?.supportPct || 0.05)
+                    const s = fetchedGroups[0].settings || {}
+                    setSupportPct(s.supportPct ?? 0.05)
+                    setTaxRate(s.taxRate ?? 0.15)
+                    setTipOutLabel(s.tipOutLabel || 'Support Pool')
+                    setTipOutMode(s.tipOutMode || 'net_sales')
+                    if (s.defaultWage) setHourlyWage(String(s.defaultWage))
+                } else {
+                    setNoParties(true)
                 }
             }
         }
@@ -87,16 +103,20 @@ export default function NewShiftEntry() {
 
     const handleGroupChange = (id: string) => {
         setSelectedGroupId(id)
-        if (id === 'individual') {
-            setSupportPct(0.0)
-        } else {
-            const g = groups.find(x => x.id === id)
-            if (g) setSupportPct(g.settings?.supportPct || 0.05)
+        const g = groups.find(x => x.id === id)
+        if (g) {
+            const s = g.settings || {}
+            setSupportPct(s.supportPct ?? 0.05)
+            setTaxRate(s.taxRate ?? 0.15)
+            setTipOutLabel(s.tipOutLabel || 'Support Pool')
+            setTipOutMode(s.tipOutMode || 'net_sales')
+            if (s.defaultWage) setHourlyWage(String(s.defaultWage))
         }
     }
 
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault()
+        if (!selectedGroupId) return toast.error("Please select a party first")
         if (!netSales) return toast.error("Please enter net sales")
         if (!tips && !cashTips) return toast.error("Did you make $0? If so, bless your heart, but log something.")
         if (nHours <= 0) return toast.error("Time travel isn't supported yet. Please enter your hours.")
@@ -113,7 +133,7 @@ export default function NewShiftEntry() {
 
             const { data: insertedShift, error } = await supabase.from('shift_entries').insert({
                 user_id: user.id,
-                group_id: selectedGroupId === 'individual' ? null : selectedGroupId,
+                group_id: selectedGroupId,
                 date: format(selectedDate, 'yyyy-MM-dd'),
                 shift_type: shiftType,
                 net_sales: nSales,
@@ -125,9 +145,12 @@ export default function NewShiftEntry() {
                     hourlyRate: parseFloat(hourlyRate),
                     hourlyWage: nWage || null,
                     wageEarnings: nWage > 0 ? wageEarnings : null,
-                    rawTime: { h, m }
+                    rawTime: { h, m },
+                    taxRate,
+                    tipOutMode,
+                    tipOutLabel
                 },
-                share_to_feed: selectedGroupId !== 'individual'
+                share_to_feed: true
             }).select('id').single()
 
             if (error) throw error
@@ -140,7 +163,7 @@ export default function NewShiftEntry() {
             }
 
             // ── SYSTEM FEED EVENTS ── 
-            if (selectedGroupId && selectedGroupId !== 'individual') {
+            if (selectedGroupId) {
                 try {
                     const { data: profile } = await supabase.from('group_members').select('display_name').eq('user_id', user.id).eq('group_id', selectedGroupId).single()
                     const name = profile?.display_name || 'A server'
@@ -216,7 +239,7 @@ export default function NewShiftEntry() {
             toast.success("Intelligence Logs Updated! 🎉")
 
             // ── ACHIEVEMENTS ──
-            if (selectedGroupId && selectedGroupId !== 'individual') {
+            if (selectedGroupId) {
                 await checkAchievements(user.id, selectedGroupId, {
                     sales: nSales,
                     tips: nTips + nCash,
@@ -395,6 +418,26 @@ export default function NewShiftEntry() {
                 <h1 className="text-4xl font-black font-outfit tracking-tighter text-white">New Shift.</h1>
             </header>
 
+            {noParties && (
+                <div className="py-16 text-center space-y-6 bg-zinc-900/30 border border-dashed border-white/5 rounded-[2.5rem]">
+                    <div className="w-16 h-16 bg-primary/10 rounded-3xl flex items-center justify-center mx-auto">
+                        <UsersRound className="w-8 h-8 text-primary" />
+                    </div>
+                    <div className="space-y-2 px-4">
+                        <h2 className="text-2xl font-black font-outfit text-white tracking-tighter">Join a Party First.</h2>
+                        <p className="text-xs font-bold text-zinc-500 uppercase tracking-widest leading-relaxed">
+                            You need to be in a party before logging shifts. Ask your manager for an invite code.
+                        </p>
+                    </div>
+                    <Link href="/app/groups"
+                        className="inline-flex items-center gap-2 px-8 py-4 bg-primary rounded-2xl text-white font-black text-sm uppercase tracking-widest shadow-2xl shadow-primary/20 active:scale-95 transition-all"
+                    >
+                        <LayoutGrid className="w-5 h-5" />
+                        Go to Parties
+                    </Link>
+                </div>
+            )}
+
             <form onSubmit={handleSave} className="space-y-6">
 
                 {/* DATE SELECTOR DROPDOWNS */}
@@ -462,7 +505,6 @@ export default function NewShiftEntry() {
                                 onChange={(e) => handleGroupChange(e.target.value)}
                                 className="w-full bg-transparent font-black font-outfit text-sm text-white appearance-none focus:outline-none cursor-pointer"
                             >
-                                <option value="individual">Individual</option>
                                 {groups.map(g => (
                                     <option key={g.id} value={g.id}>{g.name}</option>
                                 ))}
@@ -578,7 +620,7 @@ export default function NewShiftEntry() {
                                 <span className="text-white">${grossTipsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
                             <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
-                                <span>Tip out Amount ({(supportPct * 100).toFixed(1)}%)</span>
+                                <span>{tipOutLabel} ({(supportPct * 100).toFixed(1)}%{tipOutMode === 'cc_tips' ? ' of CC Tips' : ' of Net Sales'})</span>
                                 <span className="text-red-500">-${parseFloat(tipOutAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                             </div>
                             <div className="h-px bg-white/5" />
@@ -593,7 +635,7 @@ export default function NewShiftEntry() {
                             </div>
                             <div className="flex justify-between items-center pt-2 border-t border-primary/20 bg-primary/5 p-4 rounded-xl">
                                 <div className="space-y-0.5">
-                                    <p className="text-[10px] font-black text-primary uppercase tracking-tighter">Post-Tax (15%)</p>
+                                    <p className="text-[10px] font-black text-primary uppercase tracking-tighter">Post-Tax ({(taxRate * 100).toFixed(0)}%)</p>
                                     <p className="text-[8px] text-primary/60 font-black uppercase tracking-widest">Takehome Estimate</p>
                                 </div>
                                 <p className="text-3xl font-black font-outfit text-primary">${postTaxEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
