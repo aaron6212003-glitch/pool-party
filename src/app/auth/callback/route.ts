@@ -8,11 +8,16 @@ export async function GET(request: Request) {
     const origin = requestUrl.origin
 
     if (code) {
-        // PASSIVE PASS: Do NOT exchange the code here. 
-        // Pass it to the next page so the CLIENT can exchange it.
-        // This is 100% safe from email scanner pre-fetching.
-        const separator = next.includes('?') ? '&' : '?'
-        return NextResponse.redirect(`${origin}${next}${separator}code=${code}`)
+        const supabase = await createClient()
+        const { error } = await supabase.auth.exchangeCodeForSession(code)
+        
+        if (!error) {
+            // Check if 'next' is a relative path or a full URL
+            const redirectUrl = next.startsWith('http') ? next : `${origin}${next}`
+            return NextResponse.redirect(redirectUrl)
+        }
+        
+        console.error('Auth callback error:', error)
     }
 
     return NextResponse.redirect(`${origin}/auth/auth-code-error`)

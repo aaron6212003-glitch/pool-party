@@ -416,21 +416,6 @@ export default function SettingsPage() {
                             <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
                         </div>
 
-                        <div 
-                            className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/5 rounded-2xl transition-all group"
-                            onClick={() => router.push('/login/forgot')}
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400">
-                                    <Lock className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-black font-outfit text-white tracking-tight">Security</p>
-                                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Change Password</p>
-                                </div>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
-                        </div>
                     </div>
                 </Card>
             </section>

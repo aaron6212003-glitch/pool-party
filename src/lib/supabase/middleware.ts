@@ -27,21 +27,6 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
-    // PROTECTION: If there's a code, token, or session info in the URL, DO NOT call getUser().
-    // Calling getUser() triggers a session exchange that consumes one-time codes.
-    const url = new URL(request.url)
-    const hasAuthParams = 
-        url.searchParams.has('code') || 
-        url.searchParams.has('token') || 
-        url.searchParams.has('access_token') ||
-        url.hash.includes('access_token') ||
-        request.nextUrl.pathname.includes('reset-password') ||
-        request.nextUrl.pathname.startsWith('/auth')
-
-    if (hasAuthParams) {
-        return supabaseResponse
-    }
-
     // Check auth status
     const { data: { user } } = await supabase.auth.getUser()
 
