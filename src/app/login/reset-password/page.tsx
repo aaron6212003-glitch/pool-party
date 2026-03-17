@@ -14,51 +14,49 @@ export default function ResetPasswordPage() {
     const [loading, setLoading] = useState(false)
     const [isAuthed, setIsAuthed] = useState(false)
     const [checking, setChecking] = useState(true)
+    const [manualCode, setManualCode] = useState<string | null>(null)
     const supabase = createClient()
     const router = useRouter()
 
     useEffect(() => {
-        const handleAuth = async () => {
-            // Check for code in URL (standard PKCE flow)
+        const checkExistingSession = async () => {
+            // Check for code in URL first
             const url = new URL(window.location.href)
             const code = url.searchParams.get('code')
             
-            // Handle Supabase error params in the URL
-            const error = url.searchParams.get('error')
-            const errorDescription = url.searchParams.get('error_description')
-
-            if (error) {
-                console.error('Auth error param:', error, errorDescription)
-                toast.error(errorDescription || "Security link failed.")
-                router.push('/login/forgot')
-                return
-            }
-            
             if (code) {
-                const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
-                if (exchangeError) {
-                    console.error('Exchange error:', exchangeError)
-                    toast.error("Recovery link failed. It may have expired.")
-                    router.push('/login/forgot')
-                    return
-                }
-                setIsAuthed(true)
+                setManualCode(code)
                 setChecking(false)
                 return
             }
 
-            // Fallback: check for existing session
+            // Fallback: check if the callback already logged us in
             const { data: { session } } = await supabase.auth.getSession()
             if (session) {
                 setIsAuthed(true)
                 setChecking(false)
             } else {
-                toast.error("Security link expired or invalid.")
-                router.push('/login/forgot')
+                setChecking(false) // Show "expired" screen if no session and no code
             }
         }
-        handleAuth()
+        checkExistingSession()
     }, [supabase, router])
+
+    const handleClaimLink = async () => {
+        if (!manualCode) return
+        setLoading(true)
+        try {
+            const { error } = await supabase.auth.exchangeCodeForSession(manualCode)
+            if (error) throw error
+            setIsAuthed(true)
+            toast.success("Identity verified!")
+        } catch (error: any) {
+            toast.error("This link has expired. Please request a new one.")
+            router.push('/login/forgot')
+        } finally {
+            setLoading(false)
+        }
+    }
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -87,12 +85,36 @@ export default function ResetPasswordPage() {
         return (
             <div className="flex flex-col min-h-screen p-6 justify-center bg-black items-center">
                  <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-                 <p className="mt-4 text-zinc-500 text-[10px] font-black uppercase tracking-widest leading-none">Validating link...</p>
             </div>
         )
     }
 
-    if (!isAuthed) return null
+    if (!isAuthed && manualCode) {
+        return (
+            <div className="flex flex-col min-h-screen p-6 justify-center bg-black">
+                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm mx-auto z-10 text-center">
+                    <div className="mb-10">
+                        <div className="w-20 h-20 bg-primary/20 rounded-[2rem] flex items-center justify-center text-primary mx-auto mb-8 text-4xl shadow-2xl">
+                            🛡️
+                        </div>
+                        <h1 className="text-4xl font-black font-outfit text-white tracking-tighter leading-tight">Secure Link Ready.</h1>
+                        <p className="mt-2 text-zinc-500 text-xs font-bold uppercase tracking-widest opacity-60 px-8">Ready to reset your password? Click below to confirm your identity.</p>
+                    </div>
+                    <Card className="!p-10 bg-zinc-900/60 backdrop-blur-xl rounded-[2.5rem]">
+                        <Button onClick={handleClaimLink} className="w-full text-xl py-6 rounded-2xl" disabled={loading}>
+                            {loading ? "Verifying..." : "Claim Recovery Link"}
+                        </Button>
+                    </Card>
+                </motion.div>
+            </div>
+        )
+    }
+
+    if (!isAuthed) {
+        // If we reach here without a session or a code, the link is truly dead
+        router.push('/login/forgot')
+        return null
+    }
 
     return (
         <div className="flex flex-col min-h-screen p-6 justify-center bg-black">
