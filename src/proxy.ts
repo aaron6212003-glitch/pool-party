@@ -12,9 +12,10 @@ export const config = {
          * - _next/static (static files)
          * - _next/image (image optimization files)
          * - favicon.ico (favicon file)
-         * - auth (Supabase auth callback)
-         * - reset-password (Direct reset link)
+         * - login/reset-password (Manual human verification)
+         * - login/forgot (Request page)
+         * - auth (System callback)
          */
-        '/((?!_next/static|_next/image|favicon.ico|auth|login/reset-password|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
+        '/((?!_next/static|_next/image|favicon.ico|auth|login/reset-password|login/forgot|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',
     ],
 }

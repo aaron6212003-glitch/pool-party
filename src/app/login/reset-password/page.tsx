@@ -14,44 +14,58 @@ export default function ResetPasswordPage() {
     const [loading, setLoading] = useState(false)
     const [isAuthed, setIsAuthed] = useState(false)
     const [checking, setChecking] = useState(true)
-    const [manualCode, setManualCode] = useState<string | null>(null)
+    const [recoveryCode, setRecoveryCode] = useState<string | null>(null)
     const supabase = createClient()
     const router = useRouter()
 
     useEffect(() => {
-        const checkExistingSession = async () => {
-            // Check for code in URL first
-            const url = new URL(window.location.href)
-            const code = url.searchParams.get('code')
+        const checkLink = async () => {
+            // 1. Check for 'code' in the URL (Modern flow)
+            const searchParams = new URLSearchParams(window.location.search)
+            const code = searchParams.get('code')
             
+            // 2. Check for 'access_token' in the Hash (iPhone/Legacy flow)
+            const hash = window.location.hash
+            const hasTokenInHash = hash.includes('access_token=')
+
             if (code) {
-                setManualCode(code)
+                setRecoveryCode(code)
                 setChecking(false)
                 return
             }
 
-            // Fallback: check if the callback already logged us in
+            if (hasTokenInHash) {
+                // If it's in the hash, Supabase client handles it automatically, 
+                // but we need to verify we have a session now
+                const { data: { session } } = await supabase.auth.getSession()
+                if (session) {
+                    setIsAuthed(true)
+                }
+                setChecking(false)
+                return
+            }
+
+            // 3. Last resort: check if we are already authed
             const { data: { session } } = await supabase.auth.getSession()
             if (session) {
                 setIsAuthed(true)
-                setChecking(false)
-            } else {
-                setChecking(false) // Show "expired" screen if no session and no code
             }
+            setChecking(false)
         }
-        checkExistingSession()
-    }, [supabase, router])
+        checkLink()
+    }, [supabase])
 
     const handleClaimLink = async () => {
-        if (!manualCode) return
+        if (!recoveryCode) return
         setLoading(true)
         try {
-            const { error } = await supabase.auth.exchangeCodeForSession(manualCode)
+            const { error } = await supabase.auth.exchangeCodeForSession(recoveryCode)
             if (error) throw error
             setIsAuthed(true)
-            toast.success("Identity verified!")
+            toast.success("Identity verified! Reset your password now.")
         } catch (error: any) {
-            toast.error("This link has expired. Please request a new one.")
+            console.error('Reset error:', error)
+            toast.error("This specific link has expired. Please request a new one.")
             router.push('/login/forgot')
         } finally {
             setLoading(false)
@@ -89,20 +103,46 @@ export default function ResetPasswordPage() {
         )
     }
 
-    if (!isAuthed && manualCode) {
+    // AUTHED: Show the New Password form
+    if (isAuthed) {
+        return (
+            <div className="flex flex-col min-h-screen p-6 justify-center bg-black">
+                <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm mx-auto z-10">
+                    <div className="mb-10 text-center">
+                        <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary mb-2 opacity-80">Security Verified</p>
+                        <h1 className="text-4xl font-black font-outfit text-white tracking-tighter leading-tight">New Password.</h1>
+                        <p className="mt-2 text-zinc-500 text-xs font-bold uppercase tracking-widest opacity-60">Create a strong, secure password.</p>
+                    </div>
+
+                    <Card className="!p-10 shadow-3xl border-white/5 bg-zinc-900/60 backdrop-blur-xl rounded-[2.5rem]">
+                        <form onSubmit={handleUpdatePassword} className="space-y-6">
+                            <Input label="New Password" placeholder="••••••••" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
+                            <Input label="Confirm Password" placeholder="••••••••" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                            <div className="pt-4">
+                                <Button type="submit" className="w-full text-xl py-6 rounded-2xl shadow-primary/30" disabled={loading}>
+                                    {loading ? "Updating..." : "Update Password"}
+                                </Button>
+                            </div>
+                        </form>
+                    </Card>
+                </motion.div>
+            </div>
+        )
+    }
+
+    // HAVE CODE BUT NOT EXCHANGED: Show the Claim button
+    if (recoveryCode) {
         return (
             <div className="flex flex-col min-h-screen p-6 justify-center bg-black">
                 <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm mx-auto z-10 text-center">
                     <div className="mb-10">
-                        <div className="w-20 h-20 bg-primary/20 rounded-[2rem] flex items-center justify-center text-primary mx-auto mb-8 text-4xl shadow-2xl">
-                            🛡️
-                        </div>
-                        <h1 className="text-4xl font-black font-outfit text-white tracking-tighter leading-tight">Secure Link Ready.</h1>
-                        <p className="mt-2 text-zinc-500 text-xs font-bold uppercase tracking-widest opacity-60 px-8">Ready to reset your password? Click below to confirm your identity.</p>
+                        <div className="w-20 h-20 bg-primary/20 rounded-[2rem] flex items-center justify-center text-primary mx-auto mb-8 text-4xl shadow-2xl">🛡️</div>
+                        <h1 className="text-4xl font-black font-outfit text-white tracking-tighter leading-tight">Identity Check.</h1>
+                        <p className="mt-2 text-zinc-500 text-xs font-bold uppercase tracking-widest opacity-60 px-8">Tapping below verifies your device and unlocks the reset form.</p>
                     </div>
                     <Card className="!p-10 bg-zinc-900/60 backdrop-blur-xl rounded-[2.5rem]">
-                        <Button onClick={handleClaimLink} className="w-full text-xl py-6 rounded-2xl" disabled={loading}>
-                            {loading ? "Verifying..." : "Claim Recovery Link"}
+                        <Button onClick={handleClaimLink} className="w-full text-xl py-6 rounded-2xl shadow-primary/20" disabled={loading}>
+                            {loading ? "Verifying..." : "Unlock Reset Form"}
                         </Button>
                     </Card>
                 </motion.div>
@@ -110,11 +150,19 @@ export default function ResetPasswordPage() {
         )
     }
 
-    if (!isAuthed) {
-        // If we reach here without a session or a code, the link is truly dead
-        router.push('/login/forgot')
-        return null
-    }
+    // FAILED: No session and no code
+    return (
+        <div className="flex flex-col min-h-screen p-6 justify-center bg-black">
+            <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="w-full max-w-sm mx-auto text-center space-y-8">
+                <div className="w-20 h-20 bg-red-500/10 rounded-full flex items-center justify-center mx-auto text-red-500 text-4xl">⚠️</div>
+                <div className="space-y-2">
+                    <h2 className="text-3xl font-black font-outfit text-white tracking-tight">Access Denied.</h2>
+                    <p className="text-zinc-500 text-xs font-bold uppercase tracking-widest">The security link you clicked is missing or expired.</p>
+                </div>
+                <Button onClick={() => router.push('/login/forgot')} variant="secondary" className="w-full py-4 rounded-xl">Request New Link</Button>
+            </motion.div>
+        </div>
+    )
 
     return (
         <div className="flex flex-col min-h-screen p-6 justify-center bg-black">
