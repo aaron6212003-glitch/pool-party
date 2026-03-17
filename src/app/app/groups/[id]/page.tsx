@@ -1,9 +1,5 @@
 "use client"
 
-export function generateStaticParams() {
-    return [{ id: 'sample' }]
-}
-
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { Card, Button, Modal, Badge, cn } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
