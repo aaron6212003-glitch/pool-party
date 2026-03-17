@@ -1,5 +1,9 @@
 "use client"
 
+export function generateStaticParams() {
+    return [{ inviteCode: 'sample' }]
+}
+
 import { useState, useEffect } from 'react'
 import { useParams, useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'

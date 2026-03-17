@@ -432,8 +432,12 @@ export default function Dashboard() {
                                 </div>
                             )}
                             <div className="flex justify-between items-center">
-                                <p className="text-xs font-bold text-zinc-500">Tip Out</p>
-                                <p className="text-xs font-black text-red-500">-${parseFloat(selectedShift.computed_data?.supportPool || 0).toFixed(2)}</p>
+                                <p className="text-xs font-bold text-zinc-500">
+                                    Tip Out {selectedShift.computed_data?.supportStaffPresent === false && <span className="text-[8px] opacity-50 ml-1">(No Support)</span>}
+                                </p>
+                                <p className={cn("text-xs font-black", selectedShift.computed_data?.supportStaffPresent === false ? "text-zinc-600" : "text-red-500")}>
+                                    -${parseFloat(selectedShift.computed_data?.supportPool || 0).toFixed(2)}
+                                </p>
                             </div>
                             <div className="flex justify-between items-center pt-2 border-t border-white/5">
                                 <p className="text-xs font-black text-white uppercase tracking-tighter">Pre-Tax</p>

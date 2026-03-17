@@ -2,6 +2,7 @@
 
 import { motion, AnimatePresence } from 'framer-motion'
 import { useEffect, useState } from 'react'
+import { Haptics, ImpactStyle } from '@capacitor/haptics'
 
 let globalSplashSeen = false
 
@@ -25,9 +26,7 @@ export default function AnimatedSplash() {
         // Puzzle snap happens over ~1.2s
         const dropTimer = setTimeout(() => {
             setPhase('drop')
-            if (typeof navigator !== 'undefined' && navigator.vibrate) {
-                navigator.vibrate([15, 10, 15]) 
-            }
+            Haptics.impact({ style: ImpactStyle.Heavy }).catch(() => {})
         }, 1100) 
         
         const floatTimer = setTimeout(() => setPhase('float'), 1800) 
@@ -68,7 +67,7 @@ export default function AnimatedSplash() {
                 y: { repeat: Infinity, duration: 5, ease: "easeInOut" },
                 rotate: { repeat: Infinity, duration: 8, ease: "easeInOut" }
             }
-        }
+        } as any
     }
 
     // Controls the staggered timing of the letters appearing

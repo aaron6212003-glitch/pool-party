@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'com.poolparty.app', // You can change this bundle ID if needed
+  appId: 'com.aaronstephens.poolparty', // Unique identifier for the App Store
   appName: 'Pool Party',
   webDir: 'out', // Default for Next.js exports
   server: {

@@ -22,6 +22,7 @@ export default function NewShiftEntry() {
     const [hoursVal, setHoursVal] = useState('')
     const [minutesVal, setMinutesVal] = useState('')
     const [hourlyWage, setHourlyWage] = useState('')
+    const [supportStaffPresent, setSupportStaffPresent] = useState(true)
 
     const [supportPct, setSupportPct] = useState(0.05)
     const [taxRate, setTaxRate] = useState(0.15)
@@ -59,7 +60,7 @@ export default function NewShiftEntry() {
     const m = parseInt(minutesVal) || 0
     const nHours = h + (m / 60)
 
-    const tipOutAmount = nSales > 0
+    const tipOutAmount = (nSales > 0 && supportStaffPresent)
         ? tipOutMode === 'cc_tips'
             ? (nTips * supportPct).toFixed(2)
             : (nSales * supportPct).toFixed(2)
@@ -112,6 +113,15 @@ export default function NewShiftEntry() {
         }
     }
 
+    // Auto-toggle support staff based on shift type
+    useEffect(() => {
+        if (shiftType === 'lunch') {
+            setSupportStaffPresent(false)
+        } else {
+            setSupportStaffPresent(true)
+        }
+    }, [shiftType])
+
     const handleSave = (e: React.FormEvent) => {
         e.preventDefault()
         if (!selectedGroupId) return toast.error("Please select a party first")
@@ -146,7 +156,8 @@ export default function NewShiftEntry() {
                     rawTime: { h, m },
                     taxRate,
                     tipOutMode,
-                    tipOutLabel
+                    tipOutLabel,
+                    supportStaffPresent
                 },
                 share_to_feed: true
             }).select('id').single()
@@ -510,7 +521,6 @@ export default function NewShiftEntry() {
                             <ChevronDown className="absolute right-0 top-1/2 -translate-y-1/2 w-4 h-4 text-zinc-700 group-hover:text-primary transition-colors pointer-events-none" />
                         </div>
                     </Card>
-
                     <Card className="!p-5 bg-zinc-900/60 border-white/5 shadow-xl space-y-2 rounded-[1.5rem]">
                         <label className="text-[9px] font-black uppercase tracking-widest text-zinc-600 ml-1">Type</label>
                         <div className="flex bg-black/40 rounded-xl p-1">
@@ -530,6 +540,29 @@ export default function NewShiftEntry() {
                         </div>
                     </Card>
                 </div>
+
+                {/* SUPPORT STAFF TOGGLE */}
+                <Card className="!p-5 bg-zinc-900/60 border-white/5 shadow-xl space-y-4 rounded-[1.5rem]">
+                    <div className="flex items-center justify-between">
+                        <div>
+                            <label className="text-[10px] font-black uppercase tracking-widest text-zinc-600 block">Support Staff</label>
+                            <p className="text-[8px] text-zinc-800 font-bold uppercase tracking-widest mt-0.5">Toggle off to remove {tipOutLabel}</p>
+                        </div>
+                        <button
+                            type="button"
+                            onClick={() => setSupportStaffPresent(!supportStaffPresent)}
+                            className={cn(
+                                "flex items-center gap-2 px-6 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border",
+                                supportStaffPresent 
+                                    ? "bg-emerald-500/10 text-emerald-500 border-emerald-500/20" 
+                                    : "bg-red-500/10 text-red-500 border-red-500/20"
+                            )}
+                        >
+                            <div className={cn("w-1.5 h-1.5 rounded-full", supportStaffPresent ? "bg-emerald-500 animate-pulse" : "bg-red-500")}></div>
+                            {supportStaffPresent ? 'Present' : 'None'}
+                        </button>
+                    </div>
+                </Card>
 
                 {/* DURATION PICKER */}
                 <Card className="p-6 bg-zinc-900/60 border-white/5 shadow-xl space-y-4 rounded-[1.5rem]">
@@ -617,9 +650,14 @@ export default function NewShiftEntry() {
                                 <span>Gross Tips Total</span>
                                 <span className="text-white">${grossTipsTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                             </div>
-                            <div className="flex justify-between items-center text-xs font-bold text-zinc-500">
-                                <span>{tipOutLabel} ({(supportPct * 100).toFixed(1)}%{tipOutMode === 'cc_tips' ? ' of CC Tips' : ' of Net Sales'})</span>
-                                <span className="text-red-500">-${parseFloat(tipOutAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <div className="flex justify-between items-center text-xs font-bold transition-all">
+                                <span className={cn(supportStaffPresent ? "text-zinc-500" : "text-zinc-700 italic")}>
+                                    {tipOutLabel} ({(supportPct * 100).toFixed(1)}%{tipOutMode === 'cc_tips' ? ' of CC Tips' : ' of Net Sales'})
+                                    {!supportStaffPresent && " - Disabled"}
+                                </span>
+                                <span className={cn(supportStaffPresent ? "text-red-500" : "text-zinc-700")}>
+                                    -${parseFloat(tipOutAmount).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                                </span>
                             </div>
                             <div className="h-px bg-white/5" />
                             <div className="flex justify-between items-center">
