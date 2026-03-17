@@ -27,6 +27,15 @@ export async function updateSession(request: NextRequest) {
         }
     )
 
+    // PROTECTION: If there's a code in the URL, don't let the middleware touch it!
+    // Supabase SSR will automatically 'consume' the code if we call getUser() here.
+    const isAuthPath = request.nextUrl.pathname.startsWith('/auth') || request.nextUrl.pathname.includes('reset-password')
+    const hasCode = request.nextUrl.searchParams.has('code')
+    
+    if (isAuthPath && hasCode) {
+        return supabaseResponse
+    }
+
     // Check auth status
     const { data: { user } } = await supabase.auth.getUser()
 
