@@ -25,25 +25,32 @@ export default function ResetPasswordPage() {
             // If we have a code, exchange it immediately
             if (code) {
                 try {
+                    // CRITICAL: Stop any other background activity
                     const { error } = await supabase.auth.exchangeCodeForSession(code)
                     if (error) throw error
                     setIsAuthed(true)
-                } catch (e) {
+                } catch (e: any) {
                     console.error('Exchange failed:', e)
-                    toast.error("Recovery link expired or already used.")
-                    router.push('/login/forgot')
+                    // If it's already authed, we can just proceed
+                    const { data: { session } } = await supabase.auth.getSession()
+                    if (session) {
+                        setIsAuthed(true)
+                    } else {
+                        toast.error("Security link failed. It may have expired.")
+                        router.push('/login/forgot')
+                    }
                 } finally {
                     setChecking(false)
                 }
                 return
             }
 
-            // Check if we already have a session (e.g. from hash fragment)
+            // Check if we already have a session (e.g. from hash fragment or callback)
             const { data: { session } } = await supabase.auth.getSession()
             if (session) {
                 setIsAuthed(true)
             } else {
-                toast.error("Invalid security link.")
+                toast.error("Invalid security session.")
                 router.push('/login/forgot')
             }
             setChecking(false)
@@ -65,7 +72,7 @@ export default function ResetPasswordPage() {
             const { error } = await supabase.auth.updateUser({ password })
             if (error) throw error
             
-            toast.success("Password updated! Logging you in...")
+            toast.success("Password updated! Access granted.")
             router.push('/app')
         } catch (error: any) {
             toast.error(error.message)
@@ -78,7 +85,7 @@ export default function ResetPasswordPage() {
         return (
             <div className="flex flex-col min-h-screen p-6 justify-center bg-black items-center">
                  <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-                 <p className="mt-4 text-zinc-500 text-[10px] font-black uppercase tracking-widest leading-none">Securing Session...</p>
+                 <p className="mt-4 text-zinc-500 text-[10px] font-black uppercase tracking-widest leading-none">Verifying Identity...</p>
             </div>
         )
     }
@@ -87,67 +94,34 @@ export default function ResetPasswordPage() {
 
     return (
         <div className="flex flex-col min-h-screen p-6 justify-center bg-black">
-            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm mx-auto z-10">
-                <div className="mb-10 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary mb-2 opacity-80">Final Step</p>
+            <motion.div initial={{ opacity: 0, scale: 0.98 }} animate={{ opacity: 1, scale: 1 }} className="w-full max-w-sm mx-auto z-10 text-center">
+                <div className="mb-10">
+                    <div className="w-20 h-20 bg-primary/20 rounded-[2rem] flex items-center justify-center text-primary mx-auto mb-8 text-4xl shadow-2xl">🛡️</div>
                     <h1 className="text-4xl font-black font-outfit text-white tracking-tighter leading-tight">New Password.</h1>
-                    <p className="mt-2 text-zinc-500 text-xs font-bold uppercase tracking-widest opacity-60">Create a strong, secure password.</p>
+                    <p className="mt-2 text-zinc-500 text-xs font-bold uppercase tracking-widest opacity-60">Complete your security update below.</p>
                 </div>
 
                 <Card className="!p-10 shadow-3xl border-white/5 bg-zinc-900/60 backdrop-blur-xl rounded-[2.5rem]">
-                    <form onSubmit={handleUpdatePassword} className="space-y-6">
-                        <Input label="New Password" placeholder="••••••••" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
-                        <Input label="Confirm Password" placeholder="••••••••" type="password" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} required />
+                    <form onSubmit={handleUpdatePassword} className="space-y-6 text-left">
+                        <Input 
+                            label="New Password" 
+                            placeholder="••••••••" 
+                            type="password" 
+                            value={password} 
+                            onChange={(e) => setPassword(e.target.value)} 
+                            required 
+                        />
+                        <Input 
+                            label="Confirm Password" 
+                            placeholder="••••••••" 
+                            type="password" 
+                            value={confirmPassword} 
+                            onChange={(e) => setConfirmPassword(e.target.value)} 
+                            required 
+                        />
                         <div className="pt-4">
                             <Button type="submit" className="w-full text-xl py-6 rounded-2xl shadow-primary/30 shadow-2xl" disabled={loading}>
                                 {loading ? "Saving..." : "Update Password"}
-                            </Button>
-                        </div>
-                    </form>
-                </Card>
-            </motion.div>
-        </div>
-    )
-
-    return (
-        <div className="flex flex-col min-h-screen p-6 justify-center bg-black">
-            <motion.div
-                initial={{ opacity: 0, scale: 0.98 }}
-                animate={{ opacity: 1, scale: 1 }}
-                className="w-full max-w-sm mx-auto z-10"
-            >
-                <div className="mb-10 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary mb-2 opacity-80">Final Step</p>
-                    <h1 className="text-4xl font-black font-outfit text-white tracking-tighter leading-tight">
-                        New Password.
-                    </h1>
-                    <p className="mt-2 text-zinc-500 text-xs font-bold uppercase tracking-widest opacity-60">
-                        Create a strong, secure password.
-                    </p>
-                </div>
-
-                <Card className="!p-10 shadow-3xl border-white/5 bg-zinc-900/60 backdrop-blur-xl rounded-[2.5rem]">
-                    <form onSubmit={handleUpdatePassword} className="space-y-6">
-                        <Input
-                            label="New Password"
-                            placeholder="••••••••"
-                            type="password"
-                            value={password}
-                            onChange={(e) => setPassword(e.target.value)}
-                            required
-                        />
-                        <Input
-                            label="Confirm Password"
-                            placeholder="••••••••"
-                            type="password"
-                            value={confirmPassword}
-                            onChange={(e) => setConfirmPassword(e.target.value)}
-                            required
-                        />
-
-                        <div className="pt-4">
-                            <Button type="submit" className="w-full text-xl py-6 shadow-2xl shadow-primary/30 rounded-2xl" disabled={loading}>
-                                {loading ? "Updating..." : "Update Password"}
                             </Button>
                         </div>
                     </form>
