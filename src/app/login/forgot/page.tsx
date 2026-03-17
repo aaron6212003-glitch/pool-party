@@ -10,24 +10,43 @@ import { useRouter } from 'next/navigation'
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('')
+    const [code, setCode] = useState('')
     const [loading, setLoading] = useState(false)
-    const [sent, setSent] = useState(false)
+    const [step, setStep] = useState<'request' | 'verify'>('request')
     const supabase = createClient()
     const router = useRouter()
 
-    const handleReset = async (e: React.FormEvent) => {
+    const handleRequestCode = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
-
         try {
-            const { error } = await supabase.auth.resetPasswordForEmail(email, {
-                redirectTo: `${window.location.origin}/login/reset-password`,
-            })
+            const { error } = await supabase.auth.resetPasswordForEmail(email)
             if (error) throw error
-            setSent(true)
-            toast.success("Recovery link sent!")
+            setStep('verify')
+            toast.success("Security code sent to your email!")
         } catch (error: any) {
             toast.error(error.message)
+        } finally {
+            setLoading(false)
+        }
+    }
+
+    const handleVerifyCode = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+        try {
+            const { error } = await supabase.auth.verifyOtp({
+                email,
+                token: code,
+                type: 'recovery'
+            })
+            if (error) throw error
+            
+            // Success! Supabase has now authenticated this session.
+            toast.success("Identity verified!")
+            router.push('/login/reset-password')
+        } catch (error: any) {
+            toast.error("Invalid or expired code. Please check your email.")
         } finally {
             setLoading(false)
         }
@@ -41,44 +60,28 @@ export default function ForgotPasswordPage() {
                 className="w-full max-w-sm mx-auto z-10"
             >
                 <button 
-                    onClick={() => router.push('/login')}
+                    onClick={() => step === 'verify' ? setStep('request') : router.push('/login')}
                     className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.4em] text-zinc-600 hover:text-white transition-all mb-8"
                 >
                     <ChevronLeft className="w-4 h-4" />
-                    Back to Login
+                    {step === 'verify' ? 'Back' : 'Back to Login'}
                 </button>
 
-                <div className="mb-10 text-center">
-                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary mb-2 opacity-80">Security</p>
+                <div className="mb-10 text-center px-4">
+                    <p className="text-[10px] font-black uppercase tracking-[0.5em] text-primary mb-2">Security</p>
                     <h1 className="text-4xl font-black font-outfit text-white tracking-tighter leading-tight">
-                        Reset Password.
+                        {step === 'request' ? 'Reset Password.' : 'Enter Code.'}
                     </h1>
                     <p className="mt-2 text-zinc-500 text-xs font-bold uppercase tracking-widest opacity-60">
-                        We'll send a recovery link to your email.
+                        {step === 'request' 
+                            ? "We'll send a 6-digit verification code." 
+                            : `We sent a code to ${email}`}
                     </p>
                 </div>
 
                 <Card className="!p-10 shadow-3xl border-white/5 bg-zinc-900/60 backdrop-blur-xl rounded-[2.5rem]">
-                    {sent ? (
-                        <div className="text-center space-y-4 py-4 animate-in fade-in zoom-in">
-                            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto text-primary">
-                                <Mail className="w-8 h-8" />
-                            </div>
-                            <h2 className="text-xl font-black font-outfit text-white tracking-tight">Check your inbox.</h2>
-                            <p className="text-xs text-zinc-500 font-bold uppercase tracking-widest leading-relaxed">
-                                A reset link has been sent to <br/>
-                                <span className="text-white">{email}</span>
-                            </p>
-                            <Button 
-                                onClick={() => router.push('/login')}
-                                variant="secondary"
-                                className="w-full mt-6"
-                            >
-                                Back to Login
-                            </Button>
-                        </div>
-                    ) : (
-                        <form onSubmit={handleReset} className="space-y-6">
+                    {step === 'request' ? (
+                        <form onSubmit={handleRequestCode} className="space-y-6">
                             <Input
                                 label="Email Address"
                                 placeholder="name@restaurant.com"
@@ -87,11 +90,33 @@ export default function ForgotPasswordPage() {
                                 onChange={(e) => setEmail(e.target.value)}
                                 required
                             />
-
                             <div className="pt-4">
-                                <Button type="submit" className="w-full text-xl py-6 shadow-2xl shadow-primary/30 rounded-2xl" disabled={loading}>
-                                    {loading ? "Sending..." : "Send Reset Link"}
+                                <Button type="submit" className="w-full text-xl py-6 rounded-2xl shadow-primary/30" disabled={loading}>
+                                    {loading ? "Sending..." : "Get Reset Code"}
                                 </Button>
+                            </div>
+                        </form>
+                    ) : (
+                        <form onSubmit={handleVerifyCode} className="space-y-6">
+                            <Input
+                                label="6-Digit Secret Code"
+                                placeholder="000000"
+                                value={code}
+                                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                                required
+                                className="text-center text-2xl tracking-[0.5em] font-black"
+                            />
+                            <div className="pt-4">
+                                <Button type="submit" className="w-full text-xl py-6 rounded-2xl shadow-primary/30" disabled={loading}>
+                                    {loading ? "Verifying..." : "Verify Identity"}
+                                </Button>
+                                <button 
+                                    type="button"
+                                    onClick={handleRequestCode}
+                                    className="w-full mt-6 text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:text-zinc-400"
+                                >
+                                    Resend Code
+                                </button>
                             </div>
                         </form>
                     )}
