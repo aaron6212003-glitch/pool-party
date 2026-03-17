@@ -5,7 +5,7 @@ import { Card, Button, Input } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { toast } from 'sonner'
 import { motion } from 'framer-motion'
-import { Lock } from 'lucide-react'
+import { Lock, RefreshCw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
 export default function ResetPasswordPage() {
@@ -13,21 +13,51 @@ export default function ResetPasswordPage() {
     const [confirmPassword, setConfirmPassword] = useState('')
     const [loading, setLoading] = useState(false)
     const [isAuthed, setIsAuthed] = useState(false)
+    const [checking, setChecking] = useState(true)
     const supabase = createClient()
     const router = useRouter()
 
     useEffect(() => {
-        // Check if we have an active session (from the reset link)
-        const checkSession = async () => {
-            const { data: { session } } = await supabase.auth.getSession()
-            if (!session) {
-                toast.error("Recovery link expired or invalid.")
-                router.push('/login')
-            } else {
+        const handleAuth = async () => {
+            // Check for code in URL (standard PKCE flow)
+            const url = new URL(window.location.href)
+            const code = url.searchParams.get('code')
+            
+            // Handle Supabase error params in the URL
+            const error = url.searchParams.get('error')
+            const errorDescription = url.searchParams.get('error_description')
+
+            if (error) {
+                console.error('Auth error param:', error, errorDescription)
+                toast.error(errorDescription || "Security link failed.")
+                router.push('/login/forgot')
+                return
+            }
+            
+            if (code) {
+                const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+                if (exchangeError) {
+                    console.error('Exchange error:', exchangeError)
+                    toast.error("Recovery link failed. It may have expired.")
+                    router.push('/login/forgot')
+                    return
+                }
                 setIsAuthed(true)
+                setChecking(false)
+                return
+            }
+
+            // Fallback: check for existing session
+            const { data: { session } } = await supabase.auth.getSession()
+            if (session) {
+                setIsAuthed(true)
+                setChecking(false)
+            } else {
+                toast.error("Security link expired or invalid.")
+                router.push('/login/forgot')
             }
         }
-        checkSession()
+        handleAuth()
     }, [supabase, router])
 
     const handleUpdatePassword = async (e: React.FormEvent) => {
@@ -51,6 +81,15 @@ export default function ResetPasswordPage() {
         } finally {
             setLoading(false)
         }
+    }
+
+    if (checking) {
+        return (
+            <div className="flex flex-col min-h-screen p-6 justify-center bg-black items-center">
+                 <RefreshCw className="w-8 h-8 text-primary animate-spin" />
+                 <p className="mt-4 text-zinc-500 text-[10px] font-black uppercase tracking-widest leading-none">Validating link...</p>
+            </div>
+        )
     }
 
     if (!isAuthed) return null
