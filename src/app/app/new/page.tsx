@@ -10,6 +10,8 @@ import { Calculator, Save, DollarSign, Calendar as CalendarIcon, Clock, ChevronD
 import confetti from 'canvas-confetti'
 import { format, eachDayOfInterval, subDays, isSameDay, getDaysInMonth, setMonth, setDate as setDay, setYear, getYear, getMonth, getDate, startOfWeek, endOfWeek } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
+import ShiftWrap from '@/components/ShiftWrap'
+import { AnimatePresence } from 'framer-motion'
 
 export default function NewShiftEntry() {
     const [selectedDate, setSelectedDate] = useState(new Date())
@@ -33,6 +35,8 @@ export default function NewShiftEntry() {
     const [loading, setLoading] = useState(false)
     const [showConfirm, setShowConfirm] = useState(false)
     const [noParties, setNoParties] = useState(false)
+    const [showWrap, setShowWrap] = useState(false)
+    const [wrapData, setWrapData] = useState<any>(null)
     const router = useRouter()
     const supabase = createClient()
 
@@ -258,7 +262,18 @@ export default function NewShiftEntry() {
                 })
             }
 
-            router.push('/app')
+
+            setWrapData({
+                totalEarned: totalWithWage,
+                tipsPerHour: parseFloat(hourlyRate),
+                netSales: nSales,
+                hours: nHours,
+                date: selectedDate,
+                shiftType: shiftType
+            })
+            setShowWrap(true)
+
+            // No immediate redirect, wait for Wrap to close
             router.refresh()
         } catch (error: any) {
             toast.error(error.message)
@@ -426,6 +441,15 @@ export default function NewShiftEntry() {
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary opacity-90">New Shift</p>
                 <h1 className="text-4xl font-black font-outfit tracking-tighter text-white">New Shift.</h1>
             </header>
+
+            <AnimatePresence>
+                {showWrap && (
+                    <ShiftWrap 
+                        data={wrapData} 
+                        onClose={() => router.push('/app')} 
+                    />
+                )}
+            </AnimatePresence>
 
             {noParties && (
                 <div className="py-16 text-center space-y-6 bg-zinc-900/30 border border-dashed border-white/5 rounded-[2.5rem]">
