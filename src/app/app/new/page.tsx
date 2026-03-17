@@ -263,11 +263,19 @@ export default function NewShiftEntry() {
             }
 
 
+            const gradeInfo = calculateShiftGrade(nSales, nTips + nCash)
+
             setWrapData({
                 totalEarned: totalWithWage,
                 tipsPerHour: parseFloat(hourlyRate),
                 netSales: nSales,
                 hours: nHours,
+                ccTips: nTips,
+                cashTips: nCash,
+                tipOut: parseFloat(tipOutAmount),
+                basePay: wageEarnings,
+                grade: gradeInfo.grade,
+                gradeColor: gradeInfo.color,
                 date: selectedDate,
                 shiftType: shiftType
             })
