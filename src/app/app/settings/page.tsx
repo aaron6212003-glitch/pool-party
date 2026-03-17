@@ -5,8 +5,9 @@ import { Card, Button, Input, SectionTitle, GlassCard, Badge, cn } from '@/compo
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { LogOut, User, Bell, Shield, ChevronRight, Moon, UserCircle, Settings, Mail, RefreshCw, Smartphone, Camera, Image as ImageIcon, UserMinus } from 'lucide-react'
+import { LogOut, User, Bell, Shield, ChevronRight, Moon, UserCircle, Settings, Mail, RefreshCw, Smartphone, Camera, Image as ImageIcon, UserMinus, Lock } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
+import { setupNotifications } from '@/lib/notifications'
 
 export default function SettingsPage() {
     const [loading, setLoading] = useState(false)
@@ -392,7 +393,17 @@ export default function SettingsPage() {
                             </button>
                         </div>
 
-                        <div className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/5 rounded-2xl transition-all group">
+                        <div 
+                            className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/5 rounded-2xl transition-all group"
+                            onClick={() => {
+                                setupNotifications()
+                                toast.promise(setupNotifications(), {
+                                    loading: 'Requesting permissions...',
+                                    success: 'Notifications enabled!',
+                                    error: 'Could not enable notifications.'
+                                })
+                            }}
+                        >
                             <div className="flex items-center gap-4">
                                 <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-orange-400">
                                     <Bell className="w-5 h-5" />
@@ -400,6 +411,22 @@ export default function SettingsPage() {
                                 <div>
                                     <p className="text-sm font-black font-outfit text-white tracking-tight">Notifications</p>
                                     <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Shift Reminders</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
+                        </div>
+
+                        <div 
+                            className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/5 rounded-2xl transition-all group"
+                            onClick={() => router.push('/login/forgot')}
+                        >
+                            <div className="flex items-center gap-4">
+                                <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-zinc-400">
+                                    <Lock className="w-5 h-5" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-black font-outfit text-white tracking-tight">Security</p>
+                                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Change Password</p>
                                 </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />

@@ -33,27 +33,39 @@ export const GlassCard = ({ children, className, delay = 0 }: { children: React.
     </motion.div>
 )
 
+import { hapticImpact } from '@/lib/haptics'
+import { ImpactStyle } from '@capacitor/haptics'
+
 export const Button = ({
     children,
     variant = 'primary',
     className,
+    onClick,
     ...props
-}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' }) => (
-    <motion.button
-        whileHover={{ scale: 1.01 }}
-        whileTap={{ scale: 0.98 }}
-        className={cn(
-            "rounded-2xl font-black font-outfit transition-all flex items-center justify-center disabled:opacity-50",
-            variant === 'primary' ? "bg-primary text-white shadow-lg shadow-primary/20" :
-                variant === 'danger' ? "bg-red-500 text-white shadow-lg shadow-red-500/20" :
-                    "bg-zinc-800 text-white border border-white/5",
-            className
-        )}
-        {...(props as any)}
-    >
-        {children}
-    </motion.button>
-)
+}: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' }) => {
+    const handleClick = (e: React.MouseEvent<HTMLButtonElement>) => {
+        hapticImpact(variant === 'danger' ? ImpactStyle.Medium : ImpactStyle.Light)
+        if (onClick) onClick(e)
+    }
+
+    return (
+        <motion.button
+            whileHover={{ scale: 1.01 }}
+            whileTap={{ scale: 0.98 }}
+            onClick={handleClick}
+            className={cn(
+                "rounded-2xl font-black font-outfit transition-all flex items-center justify-center disabled:opacity-50",
+                variant === 'primary' ? "bg-primary text-white shadow-lg shadow-primary/20" :
+                    variant === 'danger' ? "bg-red-500 text-white shadow-lg shadow-red-500/20" :
+                        "bg-zinc-800 text-white border border-white/5",
+                className
+            )}
+            {...(props as any)}
+        >
+            {children}
+        </motion.button>
+    )
+}
 
 import { Eye, EyeOff } from 'lucide-react'
 

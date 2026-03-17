@@ -137,6 +137,18 @@ export default function LoginPage() {
                             required
                         />
 
+                        {!isSignUp && (
+                            <div className="flex justify-end -mt-2">
+                                <button
+                                    type="button"
+                                    onClick={() => router.push('/login/forgot')}
+                                    className="text-[9px] font-black uppercase tracking-widest text-zinc-600 hover:text-primary transition-colors"
+                                >
+                                    Forgot Password?
+                                </button>
+                            </div>
+                        )}
+
                         <div className="pt-4">
                             <Button type="submit" className="w-full text-xl py-6 shadow-2xl shadow-primary/30 rounded-2xl" disabled={loading}>
                                 {loading ? "One sec..." : (isSignUp ? "Create Account" : "Enter Dashboard")}
