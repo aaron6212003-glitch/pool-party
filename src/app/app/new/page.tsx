@@ -10,7 +10,7 @@ import { Calculator, Save, DollarSign, Calendar as CalendarIcon, Clock, ChevronD
 import confetti from 'canvas-confetti'
 import { format, eachDayOfInterval, subDays, isSameDay, getDaysInMonth, setMonth, setDate as setDay, setYear, getYear, getMonth, getDate, startOfWeek, endOfWeek } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
-import ShiftWrap, { WrapTemplate } from '@/components/ShiftWrap'
+import ShiftWrap from '@/components/ShiftWrap'
 import { AnimatePresence } from 'framer-motion'
 
 export default function NewShiftEntry() {
@@ -37,7 +37,6 @@ export default function NewShiftEntry() {
     const [noParties, setNoParties] = useState(false)
     const [showWrap, setShowWrap] = useState(false)
     const [wrapData, setWrapData] = useState<any>(null)
-    const [preferredTemplate, setPreferredTemplate] = useState<WrapTemplate>('obsidian')
     const router = useRouter()
     const supabase = createClient()
 
@@ -79,11 +78,7 @@ export default function NewShiftEntry() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
-            // Fetch user preference
-            const { data: profile } = await supabase.from('profiles').select('wrap_template').eq('id', user.id).single()
-            if (profile?.wrap_template) {
-                setPreferredTemplate(profile.wrap_template as WrapTemplate)
-            }
+            const { data: profile } = await supabase.from('profiles').select('theme').eq('id', user.id).single()
 
             const { data, error } = await supabase
                 .from('group_members')
@@ -221,8 +216,7 @@ export default function NewShiftEntry() {
                 {showWrap && (
                     <ShiftWrap 
                         data={wrapData} 
-                        template={preferredTemplate}
-                        onClose={() => router.push('/app')} 
+                        onClose={() => router.push('/app/history')} 
                     />
                 )}
             </AnimatePresence>

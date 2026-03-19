@@ -1064,8 +1064,25 @@ export default function PartyDetails() {
                                         if (!itemReactions[tId]) itemReactions[tId] = []
                                         itemReactions[tId].push(item)
                                     } else {
-                                        // Ensure we don't accidentally render reaction texts if metadata is missing
-                                        if (!item.content.startsWith('reaction:')) {
+                                        const isSystem = item.event_type === 'system'
+                                        const content = item.content || ''
+                                        
+                                        let shouldHide = false
+                                        if (isSystem) {
+                                            // 1. Filter out letter grades (A+, A, B, etc.)
+                                            const gradeRegex = /\*\*Grade: [A-F][+-]?\*\*/i
+                                            if (gradeRegex.test(content)) shouldHide = true
+                                            
+                                            // 2. Filter out screenshot notifications
+                                            if (content.toLowerCase().includes('screenshot')) shouldHide = true
+                                            
+                                            // 3. Filter out non-PB medal notifications
+                                            if (item.metadata?.type === 'achievement_unlocked' && !content.toLowerCase().includes('personal best')) {
+                                                shouldHide = true
+                                            }
+                                        }
+
+                                        if (!shouldHide && !item.content.startsWith('reaction:')) {
                                             actualItems.push(item)
                                         }
                                     }

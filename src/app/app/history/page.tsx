@@ -8,6 +8,8 @@ import { toast } from 'sonner'
 import { History, Calendar, LayoutGrid, TrendingUp, ChevronRight, Clock, Trash2, AlertCircle, Info, Calculator, Wallet, ChevronDown, Trophy } from 'lucide-react'
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachWeekOfInterval, subMonths, isWithinInterval } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
+import ShiftWrap from '@/components/ShiftWrap'
+import { AnimatePresence } from 'framer-motion'
 
 export default function HistoryPage() {
     const [loading, setLoading] = useState(true)
@@ -353,106 +355,41 @@ export default function HistoryPage() {
             </section>
 
             {/* SHIFT DETAILS MODAL */}
-            <Modal
-                isOpen={!!selectedShiftId}
-                onClose={() => setSelectedShiftId(null)}
-                title="Shift Details"
-            >
-                {selectedShift && (() => {
-                    const ccTips = parseFloat(selectedShift.tips || 0)
-                    const cashTips = parseFloat(selectedShift.computed_data?.cashTips || 0)
-                    const wageEarnings = parseFloat(selectedShift.computed_data?.wageEarnings || 0)
-                    const supportDeduction = parseFloat(selectedShift.computed_data?.supportPool || 0)
+            <AnimatePresence>
+                {selectedShift && (
+                    <ShiftWrap
+                        data={(() => {
+                            const ccTips = parseFloat(selectedShift.tips || 0)
+                            const cashTips = parseFloat(selectedShift.computed_data?.cashTips || 0)
+                            const wageEarnings = parseFloat(selectedShift.computed_data?.wageEarnings || 0)
+                            const supportDeduction = parseFloat(selectedShift.computed_data?.supportPool || 0)
+                            const nSales = parseFloat(selectedShift.net_sales || 0)
+                            const nHours = parseFloat(selectedShift.hours || 0)
+                            
+                            const preTaxEarnings = (ccTips + cashTips) - supportDeduction
+                            const totalWithWage = preTaxEarnings + wageEarnings
+                            const hourlyRate = (nHours > 0) ? (preTaxEarnings / nHours) : 0
+                            const gradeInfo = calculateShiftGrade(nSales, ccTips + cashTips)
 
-                    const grossEarned = ccTips + cashTips + wageEarnings
-
-                    // Breakdown
-                    const cashInHand = cashTips
-                    const preTaxCheck = ccTips + wageEarnings - supportDeduction
-                    const estTaxes = preTaxCheck * 0.15
-                    const estCheckAdd = preTaxCheck - estTaxes
-                    const totalTakehome = cashInHand + estCheckAdd
-
-                    return (
-                        <div className="space-y-8">
-                            <div className="flex justify-between items-center">
-                                <div className="space-y-1">
-                                    <p className="text-[8px] font-black uppercase tracking-widest text-primary">{format(new Date(selectedShift.date + 'T12:00:00'), 'EEEE, MMMM do')}</p>
-                                    <h2 className="text-3xl font-black font-outfit text-white tracking-tighter capitalize">{selectedShift.shift_type} Session</h2>
-                                </div>
-                                <div className="w-14 h-14 bg-zinc-900 rounded-2xl flex items-center justify-center border border-white/5 shadow-inner">
-                                    <Calculator className="w-6 h-6 text-primary" />
-                                </div>
-                            </div>
-
-                            <Card className="!p-8 bg-black border-white/5 rounded-[2rem] space-y-6 text-white font-outfit overflow-hidden relative">
-                                <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
-
-                                <div className="flex items-center gap-2 mb-2 relative z-10">
-                                    <Info className="w-3.5 h-3.5 text-primary" />
-                                    <span className="text-[10px] font-black uppercase tracking-widest text-white">Financial Breakdown</span>
-                                </div>
-
-                                <div className="space-y-4 relative z-10">
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-xs font-bold text-zinc-500">Credit Card Tips</p>
-                                        <p className="text-xs font-black">${ccTips.toFixed(2)}</p>
-                                    </div>
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-xs font-bold text-zinc-500">Wage Earnings</p>
-                                        <p className="text-xs font-black">${wageEarnings.toFixed(2)}</p>
-                                    </div>
-
-                                    <div className="flex justify-between items-center text-red-500">
-                                        <p className="text-xs font-bold opacity-80">Support Pool Deduction</p>
-                                        <p className="text-xs font-black">-${supportDeduction.toFixed(2)}</p>
-                                    </div>
-
-                                    <div className="h-px bg-white/5" />
-
-                                    <div className="flex justify-between items-center">
-                                        <p className="text-xs font-black uppercase tracking-tighter text-white">Pre-Tax Check</p>
-                                        <p className="text-sm font-black">${preTaxCheck.toFixed(2)}</p>
-                                    </div>
-                                    <div className="flex justify-between items-center text-indigo-400">
-                                        <p className="text-xs font-bold italic opacity-80">Est. 15% Taxes</p>
-                                        <p className="text-xs font-black">-${estTaxes.toFixed(2)}</p>
-                                    </div>
-
-                                    <div className="pt-3 pb-1 flex justify-between items-center">
-                                        <div className="space-y-0.5">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Est. Paycheck Add</p>
-                                        </div>
-                                        <p className="text-[15px] font-black font-outfit text-white">${estCheckAdd.toFixed(2)}</p>
-                                    </div>
-
-                                    <div className="h-px border-t border-dashed border-white/10" />
-
-                                    <div className="flex justify-between items-center">
-                                        <div className="space-y-0.5">
-                                            <p className="text-[10px] font-black uppercase tracking-widest text-amber-400">Cash in Hand</p>
-                                            <p className="text-[8px] font-black text-zinc-600 uppercase tracking-widest">Kept separate, untaxed</p>
-                                        </div>
-                                        <p className="text-[15px] font-black font-outfit text-amber-400">${cashInHand.toFixed(2)}</p>
-                                    </div>
-
-                                    <div className="flex justify-between items-center pt-4 border-t border-emerald-500/20 bg-emerald-500/5 p-4 rounded-xl shadow-[inset_0_1px_0_0_rgba(16,185,129,0.1)] mt-4">
-                                        <div className="space-y-0.5">
-                                            <p className="text-sm font-black text-emerald-400 uppercase tracking-tighter">Total Takehome</p>
-                                            <p className="text-[8px] font-black text-emerald-600/60 uppercase tracking-widest">Check + Cash</p>
-                                        </div>
-                                        <p className="text-3xl font-black text-emerald-400 tracking-tighter">${totalTakehome.toFixed(2)}</p>
-                                    </div>
-                                </div>
-                            </Card>
-
-                            <div className="flex gap-4">
-                                <Button variant="secondary" onClick={() => setSelectedShiftId(null)} className="flex-1 py-4 text-xs font-black uppercase tracking-widest rounded-xl">Close Catalog</Button>
-                            </div>
-                        </div>
-                    )
-                })()}
-            </Modal>
+                            return {
+                                totalEarned: totalWithWage,
+                                tipsPerHour: hourlyRate,
+                                netSales: nSales,
+                                hours: nHours,
+                                ccTips: ccTips,
+                                cashTips: cashTips,
+                                tipOut: supportDeduction,
+                                basePay: wageEarnings,
+                                grade: gradeInfo.grade,
+                                gradeColor: gradeInfo.color,
+                                date: new Date(selectedShift.date + 'T12:00:00'),
+                                shiftType: selectedShift.shift_type
+                            }
+                        })()}
+                        onClose={() => setSelectedShiftId(null)}
+                    />
+                )}
+            </AnimatePresence>
 
             {/* CONFIRMATION MODAL */}
             <Modal

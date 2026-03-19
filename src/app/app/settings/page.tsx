@@ -8,7 +8,7 @@ import { toast } from 'sonner'
 import { LogOut, User, Bell, Shield, ChevronRight, Moon, UserCircle, Settings, Mail, RefreshCw, Smartphone, Camera, Image as ImageIcon, UserMinus, Lock, Sparkles, Zap, Crown, ReceiptText, Palmtree, Eye, LayoutTemplate, Palette, Fingerprint, LogOut as LogOutIcon } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { setupNotifications } from '@/lib/notifications'
-import ShiftWrap, { WrapTemplate } from '@/components/ShiftWrap'
+import ShiftWrap from '@/components/ShiftWrap'
 
 export default function SettingsPage() {
     const [loading, setLoading] = useState(false)
@@ -27,6 +27,12 @@ export default function SettingsPage() {
     const [instagram, setInstagram] = useState('')
     const [favoriteSection, setFavoriteSection] = useState('')
     
+    // Security states
+    const [showSecurityModal, setShowSecurityModal] = useState<'email' | 'password' | null>(null)
+    const [securityEmail, setSecurityEmail] = useState('')
+    const [securityPassword, setSecurityPassword] = useState('')
+    const [securityConfirmPassword, setSecurityConfirmPassword] = useState('')
+    
     // Brand Theme selection
     const [theme, setTheme] = useState(() => {
         if (typeof window !== 'undefined') {
@@ -35,10 +41,7 @@ export default function SettingsPage() {
         return 'blue'
     })
 
-    // Wrap Template selection states
-    const [selectedTemplate, setSelectedTemplate] = useState<WrapTemplate>('obsidian')
     const [showWrapPreview, setShowWrapPreview] = useState(false)
-    const [showTemplatePicker, setShowTemplatePicker] = useState(false)
 
     const fileInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
@@ -52,7 +55,7 @@ export default function SettingsPage() {
 
             const { data: profile } = await supabase
                 .from('profiles')
-                .select('avatar_url, share_to_leaderboard, birthday, work_anniversary, bio, theme, phone, instagram, favorite_section, wrap_template')
+                .select('avatar_url, share_to_leaderboard, birthday, work_anniversary, bio, theme, phone, instagram, favorite_section')
                 .eq('id', user.id)
                 .single()
 
@@ -68,9 +71,6 @@ export default function SettingsPage() {
                 if (profile.theme) {
                     setTheme(profile.theme)
                     localStorage.setItem('app-theme', profile.theme)
-                }
-                if (profile.wrap_template) {
-                    setSelectedTemplate(profile.wrap_template as WrapTemplate)
                 }
                 if (profile.share_to_leaderboard !== null) {
                     setShareToLeaderboard(profile.share_to_leaderboard)
@@ -122,8 +122,7 @@ export default function SettingsPage() {
                 work_anniversary: workAnniversary,
                 bio,
                 phone,
-                theme,
-                wrap_template: selectedTemplate
+                theme
             })
             if (profileErr) throw profileErr
             await supabase.from('group_members').update({ display_name: newName }).eq('user_id', user.id)
@@ -148,34 +147,53 @@ export default function SettingsPage() {
         } catch (error: any) { toast.error(error.message) } finally { setUploading(false) }
     }
 
-    const THEMES = [
-        { id: 'blue', color: '#007AFF', name: 'Original' },
-        { id: 'emerald', color: '#10B981', name: 'Emerald' },
-        { id: 'rose', color: '#F43F5E', name: 'Rose' },
-        { id: 'amber', color: '#F59E0B', name: 'Amber' },
-        { id: 'purple', color: '#A855F7', name: 'Purple' },
-        { id: 'indigo', color: '#6366F1', name: 'Indigo' },
-        { id: 'midnight', color: '#334155', name: 'Midnight' },
-    ]
+    const handleUpdateEmail = async (e: React.FormEvent) => {
+        e.preventDefault()
+        setLoading(true)
+        try {
+            const { error } = await supabase.auth.updateUser({ email: securityEmail })
+            if (error) throw error
+            toast.success('Verification sent to ' + securityEmail + '! Check both boxes.')
+            setShowSecurityModal(null)
+        } catch (e: any) { toast.error(e.message) } finally { setLoading(false) }
+    }
 
-    const WRAP_TEMPLATES: { id: WrapTemplate, name: string, icon: any, color: string, desc: string }[] = [
-        { id: 'obsidian', name: 'Obsidian', icon: Sparkles, color: '#007AFF', desc: 'Space Age Glass' },
-        { id: 'cyber', name: 'Cyberpunk', icon: Zap, color: '#f0abfc', desc: 'Neon Holographics' },
-        { id: 'luxe', name: 'Luxe Gold', icon: Crown, color: '#fbbf24', desc: 'Old Money Satin' },
-        { id: 'thermal', name: 'Minimalist', icon: ReceiptText, color: '#000000', desc: 'Classic Dot Matrix' },
-        { id: 'sunset', name: 'Vaporwave', icon: Palmtree, color: '#fb7185', desc: 'Nostalgic Pulse' },
-    ]
+    const handleUpdatePassword = async (e: React.FormEvent) => {
+        e.preventDefault()
+        if (securityPassword !== securityConfirmPassword) {
+            toast.error('Passwords do not match')
+            return
+        }
+        setLoading(true)
+        try {
+            const { error } = await supabase.auth.updateUser({ password: securityPassword })
+            if (error) throw error
+            toast.success('Security key updated! 🔐')
+            setShowSecurityModal(null)
+            setSecurityPassword('')
+            setSecurityConfirmPassword('')
+        } catch (e: any) { toast.error(e.message) } finally { setLoading(false) }
+    }
 
     useEffect(() => {
         if (!loaded || !user) return
-        document.documentElement.setAttribute('data-theme', theme)
+        
+        // Apply theme to document
+        if (theme.startsWith('#')) {
+            document.documentElement.style.setProperty('--primary', theme)
+            document.documentElement.removeAttribute('data-theme')
+        } else {
+            document.documentElement.setAttribute('data-theme', theme)
+            document.documentElement.style.removeProperty('--primary')
+        }
+        
         localStorage.setItem('app-theme', theme)
         const syncPref = async () => {
-            const { error } = await supabase.from('profiles').update({ theme, wrap_template: selectedTemplate }).eq('id', user.id)
+            const { error } = await supabase.from('profiles').update({ theme }).eq('id', user.id)
             if (error) console.error('Pref sync fail:', error)
         }
         syncPref()
-    }, [theme, selectedTemplate, loaded, user?.id])
+    }, [theme, loaded, user?.id])
 
     const formatDateInput = (value: string) => {
         const cleaned = value.replace(/\D/g, '').slice(0, 8)
@@ -236,20 +254,30 @@ export default function SettingsPage() {
                 </div>
 
                 <Card className="!p-8 bg-zinc-900/40 border-white/5 rounded-[3rem] shadow-xl space-y-8">
-                    <div className="space-y-6">
-                        <p className="text-xs font-black font-outfit text-white">Brand Highlight</p>
-                        <div className="grid grid-cols-7 gap-2">
-                            {THEMES.map((t) => (
-                                <button key={t.id} onClick={() => setTheme(t.id)} className={cn("w-full aspect-square rounded-2xl border-2 transition-all", theme === t.id ? "border-white ring-8 ring-white/5 scale-110" : "border-transparent opacity-40 hover:opacity-100")} style={{ backgroundColor: t.color }} />
-                            ))}
+                    <div className="space-y-4">
+                        <div className="flex items-center justify-between">
+                            <p className="text-xs font-black font-outfit text-white">Brand Highlight</p>
+                            <div className="relative w-12 h-12">
+                                <input 
+                                    type="color" 
+                                    value={theme.startsWith('#') ? theme : '#007AFF'} 
+                                    onChange={(e) => setTheme(e.target.value)}
+                                    className="absolute inset-0 opacity-0 cursor-pointer w-full h-full z-10"
+                                />
+                                <div 
+                                    className="w-12 h-12 rounded-2xl border-2 border-white/20 shadow-xl relative"
+                                    style={{ backgroundColor: theme.startsWith('#') ? theme : '#007AFF' }}
+                                />
+                            </div>
                         </div>
+                        <p className="text-[10px] font-black text-zinc-600 uppercase tracking-widest leading-relaxed">Tap the color square to pick any custom hex code for your app identity.</p>
                     </div>
 
                     <div className="pt-8 border-t border-white/5 space-y-6">
                         <div className="flex items-center justify-between">
                             <p className="text-xs font-black font-outfit text-white">Post-Shift Identity</p>
-                            <Button variant="secondary" className="px-6 py-3 rounded-2xl font-black uppercase text-[9px] bg-primary/10 text-primary border-none flex items-center gap-3" onClick={() => setShowTemplatePicker(true)}>
-                                <LayoutTemplate className="w-4 h-4" /> Pick Theme
+                            <Button variant="secondary" className="px-6 py-3 rounded-2xl font-black uppercase text-[10px] bg-primary/10 text-primary border-none flex items-center gap-3" onClick={() => setShowWrapPreview(true)}>
+                                <Eye className="w-4 h-4" /> Preview
                             </Button>
                         </div>
                     </div>
@@ -297,6 +325,43 @@ export default function SettingsPage() {
                                 </div>
                             </div>
                             <ChevronRight className="w-5 h-5 text-zinc-800" />
+                        </div>
+                    </div>
+                </Card>
+            </section>
+
+            {/* Security Section */}
+            <section className="space-y-4">
+                <h2 className="font-black font-outfit text-xl text-white tracking-tight flex items-center gap-3 px-1">
+                    <Shield className="w-5 h-5 text-primary" /> Security & Credentials
+                </h2>
+                
+                <Card className="p-2 bg-zinc-900/40 border-white/5 rounded-[2.5rem] shadow-xl overflow-hidden">
+                    <div className="space-y-1">
+                        <div className="p-5 flex items-center justify-between hover:bg-white/5 rounded-3xl transition-all cursor-pointer group" onClick={() => setShowSecurityModal('email')}>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-white/10 flex items-center justify-center text-primary/60">
+                                    <Mail className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-black font-outfit text-white tracking-tight">Update Login Email</p>
+                                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest truncate max-w-[150px]">{user?.email}</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
+                        </div>
+
+                        <div className="p-5 flex items-center justify-between hover:bg-white/5 rounded-3xl transition-all cursor-pointer group" onClick={() => setShowSecurityModal('password')}>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-white/10 flex items-center justify-center text-primary/60">
+                                    <Lock className="w-6 h-6" />
+                                </div>
+                                <div>
+                                    <p className="text-sm font-black font-outfit text-white tracking-tight">Change Password</p>
+                                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">SECURITY TOKEN</p>
+                                </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
                         </div>
                     </div>
                 </Card>
@@ -365,38 +430,74 @@ export default function SettingsPage() {
                 )}
             </AnimatePresence>
 
-            {/* Template Picker */}
+            {/* Preview */}
             <AnimatePresence>
-                {showTemplatePicker && (
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[300] flex items-end justify-center bg-black/95 backdrop-blur-3xl">
-                        <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} className="w-full max-w-lg bg-zinc-900 rounded-t-[4rem] p-8 space-y-8 relative">
-                            <div className="w-20 h-2 bg-white/10 rounded-full mx-auto mb-4" />
-                            <h3 className="text-3xl font-black font-outfit text-white text-center">Wrap Identity.</h3>
-                            <div className="space-y-4 max-h-[50vh] overflow-y-auto no-scrollbar pb-8">
-                                {WRAP_TEMPLATES.map((t) => (
-                                    <button key={t.id} onClick={() => { setSelectedTemplate(t.id); setShowTemplatePicker(false); setShowWrapPreview(true); }} className={cn("w-full flex items-center justify-between p-7 rounded-[2.5rem] border-2 transition-all relative overflow-hidden group", selectedTemplate === t.id ? "bg-primary border-primary shadow-2xl shadow-primary/20" : "bg-black/30 border-white/5")}>
-                                        <div className="flex items-center gap-6 relative z-10 text-left">
-                                            <div className={cn("w-14 h-14 rounded-3xl flex items-center justify-center", selectedTemplate === t.id ? "bg-white text-primary" : "bg-zinc-900 text-zinc-600")}><t.icon className="w-7 h-7" /></div>
-                                            <div>
-                                                <p className={cn("text-xl font-black font-outfit", selectedTemplate === t.id ? "text-white" : "text-zinc-400")}>{t.name}</p>
-                                                <p className={cn("text-[9px] font-black uppercase", selectedTemplate === t.id ? "text-white/60" : "text-zinc-700")}>{t.desc}</p>
-                                            </div>
-                                        </div>
-                                    </button>
-                                ))}
-                            </div>
-                            <Button onClick={() => setShowTemplatePicker(false)} className="w-full py-7 rounded-[2.5rem] bg-white text-black font-black uppercase">Dismiss</Button>
+                {showWrapPreview && (
+                    <ShiftWrap data={{ totalEarned: 342, tipsPerHour: 48, netSales: 1650, hours: 6.5, ccTips: 285, cashTips: 45, tipOut: 82.50, basePay: 94.25, grade: 'A+', gradeColor: '#10B981', date: new Date(), shiftType: 'Dinner' }} onClose={() => setShowWrapPreview(false)} />
+                )}
+            </AnimatePresence>
+
+            {/* Security Modals */}
+            <AnimatePresence>
+                {showSecurityModal && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[200] flex items-center justify-center p-6 bg-black/95 backdrop-blur-3xl">
+                        <motion.div initial={{ scale: 0.9, y: 20 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.9, y: 20 }} className="w-full max-w-sm">
+                            <Card className="!p-10 shadow-3xl bg-zinc-900/90 border-white/10 rounded-[3rem] space-y-8">
+                                <div className="flex justify-between items-center">
+                                    <h3 className="text-2xl font-black font-outfit text-white">
+                                        {showSecurityModal === 'email' ? 'Update Email.' : 'New Password.'}
+                                    </h3>
+                                    <button onClick={() => setShowSecurityModal(null)} className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-500">×</button>
+                                </div>
+
+                                {showSecurityModal === 'email' ? (
+                                    <form onSubmit={handleUpdateEmail} className="space-y-6">
+                                        <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest leading-relaxed">
+                                            We'll send a confirmation link to your new address to verify ownership.
+                        </p>
+                                        <Input 
+                                            label="New Email Address" 
+                                            value={securityEmail} 
+                                            onChange={(e) => setSecurityEmail(e.target.value)} 
+                                            placeholder="new@restaurant.com" 
+                                            type="email"
+                                            required 
+                                        />
+                                        <Button type="submit" className="w-full py-6 rounded-[2rem]" disabled={loading}>
+                                            {loading ? 'Sending...' : 'Update & Verify'}
+                                        </Button>
+                                    </form>
+                                ) : (
+                                    <form onSubmit={handleUpdatePassword} className="space-y-6">
+                                        <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest leading-relaxed">
+                                            Update your security token. Ensure it's something you can remember.
+                                        </p>
+                                        <Input 
+                                            label="New Password" 
+                                            value={securityPassword} 
+                                            onChange={(e) => setSecurityPassword(e.target.value)} 
+                                            placeholder="••••••••" 
+                                            type="password"
+                                            required 
+                                        />
+                                        <Input 
+                                            label="Confirm Password" 
+                                            value={securityConfirmPassword} 
+                                            onChange={(e) => setSecurityConfirmPassword(e.target.value)} 
+                                            placeholder="••••••••" 
+                                            type="password"
+                                            required 
+                                        />
+                                        <Button type="submit" className="w-full py-6 rounded-[2rem]" disabled={loading}>
+                                            {loading ? 'Updating...' : 'Secure Account'}
+                                        </Button>
+                                    </form>
+                                )}
+                            </Card>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
-
-            {/* Preview */}
-            <AnimatePresence>
-                {showWrapPreview && (
-                    <ShiftWrap data={{ totalEarned: 342, tipsPerHour: 48, netSales: 1650, hours: 6.5, ccTips: 285, cashTips: 45, tipOut: 82.50, basePay: 94.25, grade: 'A+', gradeColor: '#10B981', date: new Date(), shiftType: 'Dinner' }} template={selectedTemplate} onClose={() => setShowWrapPreview(false)} />
-                )}
-            </AnimatePresence>
-        </div >
+        </div>
     )
 }

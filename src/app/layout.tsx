@@ -42,7 +42,7 @@ export default function RootLayout({
         <main className="w-full max-w-md min-h-screen bg-[var(--background)] flex flex-col relative shadow-xl overflow-x-hidden">
           <ThemeSync />
           {children}
-          <Toaster position="top-center" />
+          <Toaster position="bottom-center" expand={true} richColors offset="20px" />
         </main>
       </body>
     </html>

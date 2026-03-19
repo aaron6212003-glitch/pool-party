@@ -23,8 +23,15 @@ export default function ThemeSync() {
                 .single()
 
             if (profile?.theme) {
-                document.documentElement.setAttribute('data-theme', profile.theme)
-                localStorage.setItem('app-theme', profile.theme)
+                const theme = profile.theme
+                if (theme.startsWith('#')) {
+                    document.documentElement.style.setProperty('--primary', theme)
+                    document.documentElement.removeAttribute('data-theme')
+                } else {
+                    document.documentElement.setAttribute('data-theme', theme)
+                    document.documentElement.style.removeProperty('--primary')
+                }
+                localStorage.setItem('app-theme', theme)
             }
         }
 
