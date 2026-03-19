@@ -1,14 +1,14 @@
 "use client"
 
-import { useState } from 'react'
-import { Card, Button, Input, SectionTitle } from '@/components/PercocoUI'
+import { useState, Suspense } from 'react'
+import { Card, Button, Input } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
-import { LogIn, Sparkles } from 'lucide-react'
+import { LogIn, Sparkles, Loader2 } from 'lucide-react'
 
-export default function LoginPage() {
+function LoginContent() {
     const [email, setEmail] = useState('')
     const [password, setPassword] = useState('')
     const [displayName, setDisplayName] = useState('')
@@ -138,109 +138,132 @@ export default function LoginPage() {
                             <motion.div 
                                 initial={{ opacity: 0, y: 10 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                className="text-center space-y-4"
+                                exit={{ opacity: 0, y: -10 }}
+                                className="text-center space-y-4 py-4"
                             >
-                                <div className="w-12 h-12 bg-primary/20 text-primary rounded-full flex items-center justify-center mx-auto">
+                                <div className="w-12 h-12 bg-primary/20 rounded-2xl flex items-center justify-center text-primary mx-auto mb-4">
                                     <Sparkles className="w-6 h-6" />
                                 </div>
-                                <p className="text-white font-medium">Link dispatched! 🚀</p>
-                                <p className="text-zinc-400 text-xs">If an account exists for {email}, you'll receive a password reset link shortly.</p>
-                                <Button 
-                                    onClick={() => {
-                                        setResetSent(false)
-                                        setIsForgotPassword(false)
-                                    }}
-                                    variant="secondary"
-                                    className="w-full"
-                                >
-                                    Back to Login
-                                </Button>
+                                <h3 className="text-white font-black font-outfit text-xl">Check your inbox!</h3>
+                                <p className="text-zinc-500 text-xs font-medium leading-relaxed">We've sent a magic link to {email} to get you back in. Wait a few minutes and check your spam too!</p>
+                                <Button onClick={() => setResetSent(false)} className="bg-white/5 text-white w-full py-4 mt-4">Try another email</Button>
                             </motion.div>
                         ) : (
-                            <form onSubmit={handleAuth} className="space-y-6">
-                                {isSignUp && (
-                                    <div className="animate-in fade-in slide-in-from-top-2">
-                                        <Input
-                                            label="Display Name"
-                                            placeholder="Nickname"
-                                            type="text"
-                                            value={displayName}
-                                            onChange={(e) => setDisplayName(e.target.value)}
-                                            required
-                                        />
-                                    </div>
-                                )}
-
-                                <Input
-                                    label="Email Address"
-                                    placeholder="name@restaurant.com"
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    required
-                                />
-
-                                {!isForgotPassword && (
+                            <motion.form 
+                                key="login-form"
+                                initial={{ opacity: 0 }}
+                                animate={{ opacity: 1 }}
+                                exit={{ opacity: 0 }}
+                                onSubmit={handleAuth} 
+                                className="space-y-6"
+                            >
+                                <div className="space-y-4">
+                                    {isSignUp && (
+                                        <div className="space-y-2">
+                                            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 px-1">Display Name</p>
+                                            <Input
+                                                placeholder="e.g. Server Sam"
+                                                value={displayName}
+                                                onChange={e => setDisplayName(e.target.value)}
+                                                className="bg-black/40 border-white/5 h-14 rounded-2xl focus:border-primary/50 transition-colors"
+                                                required
+                                            />
+                                        </div>
+                                    )}
                                     <div className="space-y-2">
+                                        <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500 px-1">Email Address</p>
                                         <Input
-                                            label="Security Password"
-                                            placeholder="••••••••"
-                                            type="password"
-                                            value={password}
-                                            onChange={(e) => setPassword(e.target.value)}
+                                            type="email"
+                                            placeholder="server@restaurant.com"
+                                            value={email}
+                                            onChange={e => setEmail(e.target.value)}
+                                            className="bg-black/40 border-white/5 h-14 rounded-2xl focus:border-primary/50 transition-colors"
                                             required
                                         />
-                                        {!isSignUp && (
-                                            <div className="flex justify-end px-1">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => setIsForgotPassword(true)}
-                                                    className="text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:text-primary transition-colors"
-                                                >
-                                                    Forgot Password?
-                                                </button>
-                                            </div>
-                                        )}
                                     </div>
-                                )}
-
-                                <div className="pt-4">
-                                    <Button type="submit" className="w-full text-xl py-6 shadow-2xl shadow-primary/30 rounded-2xl" disabled={loading}>
-                                        {loading ? "One sec..." : (isForgotPassword ? "Send Reset Link" : (isSignUp ? "Create Account" : "Enter Dashboard"))}
-                                    </Button>
-                                    {isForgotPassword && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setIsForgotPassword(false)}
-                                            className="w-full mt-4 text-[10px] font-black uppercase tracking-widest text-zinc-600 hover:text-white transition-colors"
-                                        >
-                                            Cancel
-                                        </button>
+                                    {!isForgotPassword && (
+                                        <div className="space-y-2">
+                                            <div className="flex justify-between items-center px-1">
+                                                <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Password</p>
+                                                {!isSignUp && (
+                                                    <button 
+                                                        type="button"
+                                                        onClick={() => setIsForgotPassword(true)}
+                                                        className="text-[9px] font-black uppercase tracking-widest text-primary hover:opacity-80 transition-opacity"
+                                                    >
+                                                        Forgot?
+                                                    </button>
+                                                )}
+                                            </div>
+                                            <Input
+                                                type="password"
+                                                placeholder="••••••••"
+                                                value={password}
+                                                onChange={e => setPassword(e.target.value)}
+                                                className="bg-black/40 border-white/5 h-14 rounded-2xl focus:border-primary/50 transition-colors"
+                                                required
+                                            />
+                                        </div>
                                     )}
                                 </div>
-                            </form>
+
+                                <Button 
+                                    type="submit" 
+                                    disabled={loading}
+                                    className="w-full h-16 bg-primary text-white text-sm font-black uppercase tracking-widest rounded-2xl shadow-xl shadow-primary/20 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-50"
+                                >
+                                    {loading ? (
+                                        <Loader2 className="w-5 h-5 animate-spin mx-auto" />
+                                    ) : (
+                                        <span className="flex items-center gap-2 justify-center">
+                                            {isForgotPassword ? "Send Reset Link" : (isSignUp ? "Create Account" : "Access Hub")}
+                                            <LogIn className="w-4 h-4" />
+                                        </span>
+                                    )}
+                                </Button>
+                            </motion.form>
                         )}
                     </AnimatePresence>
                 </Card>
 
-                <div className="mt-12 text-center space-y-4">
-                    {!isForgotPassword && (
-                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-600">
-                            {isSignUp ? "Already a member?" : "New to the platform?"}
-                            <button
-                                onClick={() => setIsSignUp(!isSignUp)}
-                                className="ml-2 text-primary hover:underline"
-                            >
-                                {isSignUp ? "Sign In" : "Register"}
-                            </button>
-                        </p>
+                <div className="mt-8 text-center space-x-2">
+                    <button
+                        onClick={() => {
+                            setIsSignUp(!isSignUp)
+                            setIsForgotPassword(false)
+                        }}
+                        className="text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
+                    >
+                        {isSignUp ? "Already a member? " : "New to the party? "}
+                        <span className="text-primary">{isSignUp ? "Sign In" : "Register Now"}</span>
+                    </button>
+                    {isForgotPassword && (
+                        <button
+                            onClick={() => setIsForgotPassword(false)}
+                            className="block mt-4 mx-auto text-[10px] font-black uppercase tracking-widest text-zinc-500 hover:text-white transition-colors"
+                        >
+                            Back to Login
+                        </button>
                     )}
-                    <div className="flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-[0.3em] text-zinc-800">
-                        <Sparkles className="w-2.5 h-2.5" />
-                        Pool Party OS v1.1
-                    </div>
+                </div>
+                
+                <div className="mt-12 flex items-center justify-center gap-2 text-[8px] font-black uppercase tracking-[0.3em] text-zinc-800">
+                    <Sparkles className="w-2.5 h-2.5" />
+                    Pool Party OS v1.1
                 </div>
             </motion.div>
         </div>
+    )
+}
+
+export default function LoginPage() {
+    return (
+        <Suspense fallback={
+            <div className="min-h-screen bg-black flex items-center justify-center">
+                <Loader2 className="w-8 h-8 text-primary animate-spin" />
+            </div>
+        }>
+            <LoginContent />
+        </Suspense>
     )
 }
