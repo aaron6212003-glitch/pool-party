@@ -22,6 +22,15 @@ export default function PartiesPage() {
     const supabase = createClient()
 
     useEffect(() => {
+        const params = new URLSearchParams(window.location.search)
+        const joinCode = params.get('join') || params.get('code')
+        if (joinCode) {
+            setInviteInput(joinCode)
+            setShowCreate(false)
+        }
+    }, [])
+
+    useEffect(() => {
         const fetchGroups = async () => {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
@@ -44,21 +53,22 @@ export default function PartiesPage() {
                 setGroups(extracted)
 
                 if (extracted.length > 0) {
-                    if (!window.location.search.includes('list=true')) {
+                    const params = new URLSearchParams(window.location.search)
+                    if (!params.has('list') && !params.has('join') && !params.has('code')) {
                         router.replace(`/app/groups/${extracted[0].id}`)
                         return
                     }
 
                     // Fetch this week's shift counts per group to determine activity
-                    const start = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0]
-                    const end = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0]
+                    const startValue = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0]
+                    const endValue = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0]
                     const groupIds = extracted.map((g: any) => g.id)
                     const { data: shifts } = await supabase
                         .from('shift_entries')
                         .select('group_id')
                         .in('group_id', groupIds)
-                        .gte('date', start)
-                        .lte('date', end)
+                        .gte('date', startValue)
+                        .lte('date', endValue)
 
                     if (shifts) {
                         const map: Record<string, number> = {}
@@ -86,34 +96,19 @@ export default function PartiesPage() {
 
         setLoading(true)
         try {
-            const { data: { user } } = await supabase.auth.getUser()
-            if (!user) throw new Error("Not logged in")
-
-            const { data: group, error: fetchError } = await supabase
-                .from('groups')
-                .select('*')
-                .eq('invite_code', code)
-                .single()
-
-            if (fetchError || !group) throw new Error("Invalid invite link/code")
-
-            const { error: joinError } = await supabase.from('group_members').insert({
-                group_id: group.id,
-                user_id: user.id,
-                display_name: user?.user_metadata?.full_name ?? 'Server',
+            // Use the NEW secure RPC instead of client-side select/insert
+            const { data, error } = await supabase.rpc('join_party_by_code', {
+                invite_code_input: code.toUpperCase()
             })
 
-            if (joinError) {
-                if (joinError.code === '23505') throw new Error("You're already in this party!")
-                throw joinError
-            }
+            if (error) throw error
+            if (!data.success) throw new Error(data.error)
 
-            toast.success(`Welcome to the party: ${group.name}`)
-            router.push(`/app/groups/${group.id}`)
+            toast.success(`Welcome to the party: ${data.group_name}`)
+            router.push(`/app/groups/${data.group_id}`)
             router.refresh()
         } catch (error: any) {
             toast.error(error.message)
-        } finally {
             setLoading(false)
         }
     }

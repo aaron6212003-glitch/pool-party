@@ -5,7 +5,7 @@ import { Card, Button, Modal, Badge, cn } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
 import { useParams, useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart, Image as ImageIcon, Film, Camera, Search, Loader2, AlertCircle, Flag, Ban } from 'lucide-react'
+import { Trophy, Settings, BarChart3, Crown, UsersRound, DollarSign, Wallet, RefreshCcw, Calendar, ArrowUpRight, ChevronLeft, ChevronRight, EyeOff, ShieldAlert, Hash, Pencil, Check, X, Trash2, User, UserMinus, Instagram, Medal, Vote, Plus, BarChart, Image as ImageIcon, Film, Camera, Search, Loader2, AlertCircle, Flag, Ban, Share2, Sparkles } from 'lucide-react'
 import { format, startOfWeek, endOfWeek, subWeeks } from 'date-fns'
 import { calculateShiftGrade } from '@/lib/calculations'
 import SportsbookTab from '@/components/SportsbookTab'
@@ -198,6 +198,30 @@ export default function PartyDetails() {
     const [uploadingMedia, setUploadingMedia] = useState(false)
     const [pendingMedia, setPendingMedia] = useState<{ url: string, type: 'image' | 'gif' } | null>(null)
     const fileInputRef = useRef<HTMLInputElement>(null)
+
+    const handleShareInvite = async () => {
+        if (!group?.invite_code) return
+        
+        const inviteUrl = `${window.location.origin}/app/groups?join=${group.invite_code}`
+        const shareData = {
+            title: 'Join my Pool Party!',
+            text: `Join our restaurant party "${group.name}" on Pool Party and track your shifts with us!`,
+            url: inviteUrl,
+        }
+
+        try {
+            if (navigator.share && typeof navigator.canShare === 'function' && navigator.canShare(shareData)) {
+                await navigator.share(shareData)
+            } else {
+                await navigator.clipboard.writeText(inviteUrl)
+                toast.success('Invite link copied to clipboard!')
+            }
+        } catch (err) {
+            if ((err as Error).name !== 'AbortError') {
+                console.error('Error sharing:', err)
+            }
+        }
+    }
     const [showDeletePartyModal, setShowDeletePartyModal] = useState(false)
     const [deletingParty, setDeletingParty] = useState(false)
     const [partySettings, setPartySettings] = useState({
@@ -799,7 +823,16 @@ export default function PartyDetails() {
                             <RefreshCcw className="w-4 h-4" />
                         </button>
                     </div>
-                    <h1 className="text-4xl font-black font-outfit max-w-[90%] leading-[0.9] text-white tracking-tighter capitalize">{group?.name || 'Party Hub'}</h1>
+                    <div className="flex justify-between items-center pr-1">
+                        <h1 className="text-4xl font-black font-outfit max-w-[70%] leading-[0.9] text-white tracking-tighter capitalize">{group?.name || 'Party Hub'}</h1>
+                        <Button 
+                            onClick={handleShareInvite}
+                            className="bg-primary/20 hover:bg-primary/30 text-primary border border-primary/20 !py-2.5 !px-5 rounded-2xl flex items-center gap-2 shrink-0 h-11"
+                        >
+                            <Share2 className="w-4 h-4" />
+                            <span className="text-[10px] font-black uppercase tracking-widest">Invite Team</span>
+                        </Button>
+                    </div>
                     <div className="flex items-center gap-4">
                         <div className="flex -space-x-3 overflow-hidden">
                             {members.slice(0, 5).map((m, i) => (
@@ -939,6 +972,35 @@ export default function PartyDetails() {
                                 <span className="text-[7px] opacity-60 font-bold lowercase tracking-normal">Running totals since start</span>
                             </button>
                         </div>
+
+                        {/* Recent Achievements Ticker */}
+                        {(() => {
+                            const recentAchievements = feedItems
+                                .filter(item => item.event_type === 'system' && item.metadata?.type === 'achievement_unlocked')
+                                .slice(0, 3)
+
+                            if (recentAchievements.length === 0) return null
+
+                            return (
+                                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 overflow-hidden relative">
+                                    <div className="absolute top-0 right-0 p-4 opacity-5">
+                                        <Sparkles className="w-12 h-12 text-primary" />
+                                    </div>
+                                    <div className="flex items-center gap-2 mb-2">
+                                        <Sparkles className="w-3 h-3 text-primary" />
+                                        <span className="text-[9px] font-black uppercase tracking-widest text-primary">Recent Milestones</span>
+                                    </div>
+                                    <div className="space-y-2">
+                                        {recentAchievements.map((item, idx) => (
+                                            <div key={idx} className="text-[10px] font-bold text-zinc-400 flex items-center gap-2">
+                                                <span className="shrink-0 opacity-80">🎖️</span>
+                                                <span className="truncate" dangerouslySetInnerHTML={{ __html: item.content.replace(/\*\*(.*?)\*\*/g, '<span class="text-white">$1</span>') }} />
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )
+                        })()}
 
                         {/* Week Navigator */}
                         {timeframe === 'week' && (
