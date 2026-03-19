@@ -33,7 +33,13 @@ export default function RootLayout({
           (function() {
             try {
               var theme = localStorage.getItem('app-theme');
-              if (theme) document.documentElement.setAttribute('data-theme', theme);
+              if (theme) {
+                if (theme.startsWith('#')) {
+                  document.documentElement.style.setProperty('--primary', theme);
+                } else {
+                  document.documentElement.setAttribute('data-theme', theme);
+                }
+              }
             } catch (e) {}
           })();
         ` }} />

@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
-import { Plus, ChevronRight, Hash, UsersRound, ArrowRight, Sparkles, PartyPopper, Globe, ShieldCheck, Zap } from 'lucide-react'
+import { Plus, ChevronRight, Hash, UsersRound, ArrowRight, Sparkles, PartyPopper, Globe, ShieldCheck } from 'lucide-react'
 import { startOfWeek, endOfWeek } from 'date-fns'
 
 export default function PartiesPage() {
@@ -35,47 +35,57 @@ export default function PartiesPage() {
             const { data: { user } } = await supabase.auth.getUser()
             if (!user) return
 
-            const { data, error } = await supabase
+            // 1. Get Group IDs directly from members table (No Join)
+            const { data: memberRows, error: memberError } = await supabase
                 .from('group_members')
-                .select(`
-                    group_id,
-                    groups (
-                        id,
-                        name,
-                        invite_code,
-                        owner_id
-                    )
-                `)
+                .select('group_id')
                 .eq('user_id', user.id)
 
-            if (!error && data) {
-                const extracted = data.map((item: any) => item.groups).filter(Boolean)
-                setGroups(extracted)
+            if (memberError) {
+                console.error("Member fetch error:", memberError)
+                setFetchLoading(false)
+                return
+            }
 
-                if (extracted.length > 0) {
-                    const params = new URLSearchParams(window.location.search)
-                    if (!params.has('list') && !params.has('join') && !params.has('code')) {
-                        router.replace(`/app/groups/${extracted[0].id}`)
-                        return
-                    }
+            if (memberRows && memberRows.length > 0) {
+                const groupIds = memberRows.map((m: any) => m.group_id)
+                
+                // 2. Fetch Group details for these IDs separately
+                const { data: groupsData, error: groupsError } = await supabase
+                    .from('groups')
+                    .select('*')
+                    .in('id', groupIds)
 
-                    // Fetch this week's shift counts per group to determine activity
-                    const startValue = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0]
-                    const endValue = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0]
-                    const groupIds = extracted.map((g: any) => g.id)
-                    const { data: shifts } = await supabase
-                        .from('shift_entries')
-                        .select('group_id')
-                        .in('group_id', groupIds)
-                        .gte('date', startValue)
-                        .lte('date', endValue)
+                if (groupsError) {
+                    console.error("Groups fetch error:", groupsError)
+                } else if (groupsData) {
+                    setGroups(groupsData)
 
-                    if (shifts) {
-                        const map: Record<string, number> = {}
-                        shifts.forEach((s: any) => {
-                            map[s.group_id] = (map[s.group_id] || 0) + 1
-                        })
-                        setActiveMap(map)
+                    if (groupsData.length > 0) {
+                        const params = new URLSearchParams(window.location.search)
+                        if (groupsData.length === 1 && !params.has('list') && !params.has('join') && !params.has('code')) {
+                            router.replace(`/app/groups/${groupsData[0].id}`)
+                            return
+                        }
+
+                        // Fetch this week's activity
+                        const startValue = startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0]
+                        const endValue = endOfWeek(new Date(), { weekStartsOn: 1 }).toISOString().split('T')[0]
+                        
+                        const { data: shifts } = await supabase
+                            .from('shift_entries')
+                            .select('group_id')
+                            .in('group_id', groupIds)
+                            .gte('date', startValue)
+                            .lte('date', endValue)
+
+                        if (shifts) {
+                            const map: Record<string, number> = {}
+                            shifts.forEach((s: any) => {
+                                map[s.group_id] = (map[s.group_id] || 0) + 1
+                            })
+                            setActiveMap(map)
+                        }
                     }
                 }
             }
@@ -184,22 +194,6 @@ export default function PartiesPage() {
                             <PartyPopper className="w-7 h-7" />
                         </div>
                     </header>
-
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 space-y-1">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Memberships</p>
-                            <p className="text-2xl font-black font-outfit text-white leading-none">{groups.length}</p>
-                        </div>
-                        <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-2xl p-4 space-y-1">
-                            <p className="text-[9px] font-black uppercase tracking-widest text-zinc-500">Active This Week</p>
-                            <div className="flex items-center gap-2">
-                                <Zap className="w-4 h-4 text-emerald-400" />
-                                <p className="text-2xl font-black font-outfit text-white leading-none">
-                                    {Object.values(activeMap).filter(v => v > 0).length}
-                                </p>
-                            </div>
-                        </div>
-                    </div>
                 </div>
             </section>
 

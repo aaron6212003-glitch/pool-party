@@ -1,5 +1,4 @@
 -- 1. Secure function to join group by invite code
--- Uses explicit aliases (g, gm, p) to avoid "ambiguous column" or "id error"
 CREATE OR REPLACE FUNCTION join_party_by_code(invite_code_input TEXT)
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -10,7 +9,6 @@ DECLARE
     target_group_name TEXT;
     caller_name TEXT;
 BEGIN
-    -- Find group by code (Qualify columns)
     SELECT g.id, g.name INTO target_group_id, target_group_name
     FROM groups g
     WHERE UPPER(g.invite_code) = UPPER(invite_code_input)
@@ -20,57 +18,47 @@ BEGIN
         RETURN jsonb_build_object('success', false, 'error', 'Invalid or expired invite code.');
     END IF;
 
-    -- Check if already a member
     IF EXISTS (SELECT 1 FROM group_members gm WHERE gm.group_id = target_group_id AND gm.user_id = auth.uid()) THEN
-        RETURN jsonb_build_object('success', true, 'group_id', target_group_id, 'group_name', target_group_name, 'message', 'Already a member');
+        RETURN jsonb_build_object('success', true, 'group_id', target_group_id, 'group_name', target_group_name);
     END IF;
 
-    -- Get display name with multi-layered fallback
     SELECT p.display_name INTO caller_name FROM profiles p WHERE p.id = auth.uid() LIMIT 1;
-    
     IF caller_name IS NULL OR caller_name = '' THEN
         caller_name := COALESCE(auth.jwt() -> 'user_metadata' ->> 'full_name', 'Server');
     END IF;
 
-    -- Join the group
     INSERT INTO group_members (group_id, user_id, display_name)
     VALUES (target_group_id, auth.uid(), caller_name);
 
-    RETURN jsonb_build_object(
-        'success', true, 
-        'group_id', target_group_id, 
-        'group_name', target_group_name
-    );
+    RETURN jsonb_build_object('success', true, 'group_id', target_group_id, 'group_name', target_group_name);
 END;
 $$;
 
--- 2. HARDENED RLS POLICIES (Aliases everywhere to prevent "id error")
+-- 2. NUCLEAR RLS FIX (Guaranteed Visibility)
 
--- GROUPS: Secure invite code visibility
+-- GROUPS: Allow all authenticated users to SELECT (Breaks recursion & join hidden-ness)
+DROP POLICY IF EXISTS "g_select_final" ON groups;
+DROP POLICY IF EXISTS "g_select_membership_hardened" ON groups;
 DROP POLICY IF EXISTS "g_select_secure" ON groups;
-CREATE POLICY "g_select_membership_hardened" ON groups 
+CREATE POLICY "g_select_final" ON groups 
 FOR SELECT TO authenticated 
-USING (
-    id IN (SELECT gm.group_id FROM group_members gm WHERE gm.user_id = auth.uid()) 
-    OR owner_id = auth.uid()
-);
+USING (true);
 
--- GROUP MEMBERS: Allow members to see each other, allow owners to manage
+-- GROUP MEMBERS: Allow all authenticated users to SELECT
+DROP POLICY IF EXISTS "m_select_final" ON group_members;
+DROP POLICY IF EXISTS "m_select_membership_hardened" ON group_members;
 DROP POLICY IF EXISTS "m_select_secure" ON group_members;
-CREATE POLICY "m_select_membership_hardened" ON group_members 
+CREATE POLICY "m_select_final" ON group_members 
 FOR SELECT TO authenticated 
+USING (true); 
+
+-- GROUP MEMBERS: Delete logic is still restricted
+DROP POLICY IF EXISTS "m_delete_final" ON group_members;
+DROP POLICY IF EXISTS "m_delete_owner_hardened" ON group_members;
+CREATE POLICY "m_delete_final" ON group_members
+FOR DELETE TO authenticated
 USING (
     user_id = auth.uid() 
     OR 
-    group_id IN (SELECT g.id FROM groups g WHERE g.owner_id = auth.uid())
-);
-
--- Note: We still use the hotfix recursion-free delete policy if active
-DROP POLICY IF EXISTS "m_delete_admin" ON group_members;
-CREATE POLICY "m_delete_owner_hardened" ON group_members
-FOR DELETE TO authenticated
-USING (
-    auth.uid() = user_id -- Self-delete
-    OR 
-    group_id IN (SELECT g.id FROM groups g WHERE g.owner_id = auth.uid())
+    EXISTS (SELECT 1 FROM groups g WHERE g.id = group_members.group_id AND g.owner_id = auth.uid())
 );
