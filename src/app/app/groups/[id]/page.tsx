@@ -585,6 +585,20 @@ export default function PartyDetails() {
         }
     }
 
+    const handleReportPost = async (postId: string) => {
+        const reason = prompt("Why are you reporting this post? (e.g. Offensive, Spam, Harassment)")
+        if (!reason) return
+        
+        const { error } = await supabase.from('reports').insert({
+            reporter_id: currentUserId,
+            post_id: postId,
+            reason
+        })
+        
+        if (error) toast.error("Report failed to send.")
+        else toast.success("Report submitted. Our team will review this.")
+    }
+
     const handleReaction = async (itemId: string, emoji: string) => {
         if (!currentUserId) return
 
@@ -1262,6 +1276,14 @@ export default function PartyDetails() {
                                                                 className="ml-1 shrink-0 p-1 rounded-lg text-zinc-700 hover:text-red-400 hover:bg-red-400/10 active:text-red-400 active:bg-red-400/10 transition-colors"
                                                             >
                                                                 <Trash2 className="w-3 h-3" />
+                                                            </button>
+                                                        )}
+                                                        {!isSystem && item.user_id !== currentUserId && (
+                                                            <button
+                                                                onClick={() => handleReportPost(item.id)}
+                                                                className="ml-1 shrink-0 p-1 rounded-lg text-zinc-700 hover:text-amber-500 hover:bg-amber-500/10 active:text-amber-500 active:bg-amber-500/10 transition-colors"
+                                                            >
+                                                                <Flag className="w-3 h-3" />
                                                             </button>
                                                         )}
                                                     </div>

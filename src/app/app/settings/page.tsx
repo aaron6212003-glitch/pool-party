@@ -101,6 +101,7 @@ export default function SettingsPage() {
             await supabase.from('group_members').delete().eq('user_id', user.id)
             await supabase.from('party_feed').delete().eq('user_id', user.id)
             await supabase.from('user_achievements').delete().eq('user_id', user.id)
+            await supabase.from('reports').delete().eq('reporter_id', user.id)
             await supabase.from('profiles').delete().eq('id', user.id)
             await supabase.auth.signOut()
             router.push('/')
@@ -360,6 +361,37 @@ export default function SettingsPage() {
                                     <p className="text-sm font-black font-outfit text-white tracking-tight">Change Password</p>
                                     <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">SECURITY TOKEN</p>
                                 </div>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
+                        </div>
+                    </div>
+                </Card>
+            </section>
+
+            {/* Legal Section */}
+            <section className="space-y-4">
+                <h2 className="font-black font-outfit text-xl text-white tracking-tight flex items-center gap-3 px-1">
+                    <Shield className="w-5 h-5 text-secondary" /> Legal & Terms
+                </h2>
+                
+                <Card className="p-2 bg-zinc-900/40 border-white/5 rounded-[2.5rem] shadow-xl overflow-hidden">
+                    <div className="space-y-1">
+                        <div className="p-5 flex items-center justify-between hover:bg-white/5 rounded-3xl transition-all cursor-pointer group" onClick={() => router.push('/legal/privacy')}>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-white/10 flex items-center justify-center text-zinc-500">
+                                    <Shield className="w-6 h-6" />
+                                </div>
+                                <p className="text-sm font-black font-outfit text-white tracking-tight">Privacy Policy</p>
+                            </div>
+                            <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
+                        </div>
+
+                        <div className="p-5 flex items-center justify-between hover:bg-white/5 rounded-3xl transition-all cursor-pointer group" onClick={() => router.push('/legal/terms')}>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-white/10 flex items-center justify-center text-zinc-500">
+                                    <Lock className="w-6 h-6" />
+                                </div>
+                                <p className="text-sm font-black font-outfit text-white tracking-tight">Terms of Use</p>
                             </div>
                             <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
                         </div>
