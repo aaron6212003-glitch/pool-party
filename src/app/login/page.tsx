@@ -3,7 +3,7 @@
 import { useState } from 'react'
 import { Card, Button, Input, SectionTitle } from '@/components/PercocoUI'
 import { createClient } from '@/lib/supabase/client'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { toast } from 'sonner'
 import { motion, AnimatePresence } from 'framer-motion'
 import { LogIn, Sparkles } from 'lucide-react'
@@ -17,7 +17,10 @@ export default function LoginPage() {
     const [isForgotPassword, setIsForgotPassword] = useState(false)
     const [resetSent, setResetSent] = useState(false)
     const router = useRouter()
+    const searchParams = useSearchParams()
     const supabase = createClient()
+    
+    const nextPath = searchParams.get('next')
 
     const handleAuth = async (e: React.FormEvent) => {
         e.preventDefault()
@@ -36,7 +39,7 @@ export default function LoginPage() {
                     email,
                     password,
                     options: {
-                        emailRedirectTo: `${window.location.origin}/auth/callback`,
+                        emailRedirectTo: `${window.location.origin}/auth/callback${nextPath ? `?next=${encodeURIComponent(nextPath)}` : ''}`,
                         data: {
                             full_name: displayName,
                         }
@@ -82,6 +85,13 @@ export default function LoginPage() {
 
     const checkInviteAndRedirect = () => {
         try {
+            // Priority 1: URL param 'next'
+            if (nextPath && nextPath.startsWith('/join/')) {
+                router.push(nextPath)
+                return
+            }
+
+            // Priority 2: localStorage (fallback for after email confirmation)
             const pendingInvite = localStorage.getItem('pendingInviteCode')
             if (pendingInvite) {
                 localStorage.removeItem('pendingInviteCode')

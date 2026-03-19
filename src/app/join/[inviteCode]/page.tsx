@@ -23,58 +23,32 @@ export default function JoinGroupPage() {
 
         const joinGroup = async () => {
             try {
-                // Safeguard against missing data object
-                const { data, error: authError } = await supabase.auth.getUser()
-                const user = data?.user
+                const { data: { user } } = await supabase.auth.getUser()
 
                 if (!user) {
                     setStatus('Redirecting to login...')
-                    // Safe localStorage for private browsers
                     try {
                         localStorage.setItem('pendingInviteCode', inviteCode)
                     } catch (e) {
-                        console.warn("Storage blocked, invite might not persist after login.")
+                        console.warn("Storage blocked.")
                     }
                     toast.info("Please sign in to join the party!")
-                    router.push('/login')
+                    router.push(`/login?next=/join/${inviteCode}`)
                     return
                 }
 
-                setStatus(`Verifying invite code: ${inviteCode}`)
+                setStatus(`Joining party: ${inviteCode}...`)
 
-                // Check if group exists
-                const { data: group, error: fetchError } = await supabase
-                    .from('groups')
-                    .select('*')
-                    .eq('invite_code', inviteCode)
-                    .single()
-
-                if (fetchError || !group) {
-                    toast.error("This party invite has expired or is invalid.")
-                    router.push('/app/groups')
-                    return
-                }
-
-                setStatus(`Welcome! Joining ${group.name}...`)
-
-                // Join the group
-                const { error: joinError } = await supabase.from('group_members').insert({
-                    group_id: group.id,
-                    user_id: user.id,
-                    display_name: user.user_metadata?.full_name ?? 'Server',
+                // Use the NEW secure RPC instead of client-side insert
+                const { data, error } = await supabase.rpc('join_party_by_code', {
+                    invite_code_input: inviteCode.toUpperCase()
                 })
 
-                if (joinError) {
-                    if (joinError.code === '23505') {
-                        toast.success(`You're already in ${group.name}!`)
-                        router.push(`/app/groups/${group.id}`)
-                        return
-                    }
-                    throw joinError
-                }
+                if (error) throw error
+                if (!data.success) throw new Error(data.error)
 
-                toast.success(`Welcome to the team! Joined ${group.name} 🥂`)
-                router.push(`/app/groups/${group.id}`)
+                toast.success(`Welcome to the team! Joined ${data.group_name} 🥂`)
+                router.push(`/app/groups/${data.group_id}`)
             } catch (error: any) {
                 console.error("Join Error:", error)
                 toast.error(error.message || "An error occurred while joining.")
