@@ -5,7 +5,7 @@ import { Card, Button, Input, SectionTitle, GlassCard, Badge, cn } from '@/compo
 import { createClient } from '@/lib/supabase/client'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
-import { LogOut, User, Bell, Shield, ChevronRight, Moon, UserCircle, Settings, Mail, RefreshCw, Smartphone, Camera, Image as ImageIcon, UserMinus, Lock, Sparkles, Zap, Crown, ReceiptText, Palmtree, Eye } from 'lucide-react'
+import { LogOut, User, Bell, Shield, ChevronRight, Moon, UserCircle, Settings, Mail, RefreshCw, Smartphone, Camera, Image as ImageIcon, UserMinus, Lock, Sparkles, Zap, Crown, ReceiptText, Palmtree, Eye, LayoutTemplate, Palette, Fingerprint } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { setupNotifications } from '@/lib/notifications'
 import ShiftWrap, { WrapTemplate } from '@/components/ShiftWrap'
@@ -27,6 +27,7 @@ export default function SettingsPage() {
     const [instagram, setInstagram] = useState('')
     const [favoriteSection, setFavoriteSection] = useState('')
     
+    // Brand Theme selection
     const [theme, setTheme] = useState(() => {
         if (typeof window !== 'undefined') {
             return localStorage.getItem('app-theme') || 'blue'
@@ -34,8 +35,10 @@ export default function SettingsPage() {
         return 'blue'
     })
 
+    // Wrap Template selection states
     const [selectedTemplate, setSelectedTemplate] = useState<WrapTemplate>('obsidian')
     const [showWrapPreview, setShowWrapPreview] = useState(false)
+    const [showTemplatePicker, setShowTemplatePicker] = useState(false)
 
     const fileInputRef = useRef<HTMLInputElement>(null)
     const router = useRouter()
@@ -47,7 +50,6 @@ export default function SettingsPage() {
             if (!user) return
             setUser(user)
 
-            // Load avatar_url from profiles table (real source of truth, not JWT)
             const { data: profile } = await supabase
                 .from('profiles')
                 .select('avatar_url, share_to_leaderboard, birthday, work_anniversary, bio, theme, phone, instagram, favorite_section, wrap_template')
@@ -74,11 +76,7 @@ export default function SettingsPage() {
                     setShareToLeaderboard(profile.share_to_leaderboard)
                 }
             } else {
-                await supabase.from('profiles').upsert({
-                    id: user.id,
-                    email: user.email,
-                    theme: theme
-                })
+                await supabase.from('profiles').upsert({ id: user.id, email: user.email, theme: theme })
             }
             setLoaded(true)
         }
@@ -92,38 +90,24 @@ export default function SettingsPage() {
     }
 
     const handleDeleteAccount = async () => {
-        if (!confirm('🛑 WARNING: This will permanently delete your profile, shifts, and remove you from all parties. Your account cannot be recovered. Are you absolutely sure?')) return
-        if (!confirm('FINAL WARNING: Type "DELETE" to confirm? This is permanent.')) return
-        
+        if (!confirm('🛑 WARNING: Permanent delete. Proseed?')) return
+        if (!confirm('Type "DELETE" to confirm?')) return
         setLoading(true)
         try {
             await supabase.from('shift_entries').delete().eq('user_id', user.id)
             await supabase.from('group_members').delete().eq('user_id', user.id)
-            await supabase.from('party_feed').delete().eq('user_id', user.id)
-            await supabase.from('user_achievements').delete().eq('user_id', user.id)
             await supabase.from('profiles').delete().eq('id', user.id)
-            
             await supabase.auth.signOut()
-            toast.success('Account and data deleted.')
             router.push('/')
-        } catch (e: any) {
-            toast.error(e.message)
-        } finally {
-            setLoading(false)
-        }
+        } catch (e: any) { toast.error(e.message) } finally { setLoading(false) }
     }
 
     const handleUpdateProfile = async (e: React.FormEvent) => {
         e.preventDefault()
-        if (!loaded || !user) return toast.error("Profile not loaded yet.")
-
+        if (!loaded || !user) return
         setLoading(true)
         try {
-            const { error: authErr } = await supabase.auth.updateUser({
-                data: { full_name: newName, avatar_url: newAvatar }
-            })
-            if (authErr) throw authErr
-
+            await supabase.auth.updateUser({ data: { full_name: newName, avatar_url: newAvatar }})
             const { error: profileErr } = await supabase.from('profiles').upsert({
                 id: user.id,
                 email: user.email,
@@ -137,120 +121,29 @@ export default function SettingsPage() {
                 wrap_template: selectedTemplate
             })
             if (profileErr) throw profileErr
-
             await supabase.from('group_members').update({ display_name: newName }).eq('user_id', user.id)
-
             toast.success('Profile updated!')
             setShowEdit(false)
-
-            const { data: { user: freshUser } } = await supabase.auth.getUser()
-            if (freshUser) setUser(freshUser)
-        } catch (e: any) {
-            console.error('Update error:', e)
-            toast.error(e.message)
-        } finally {
-            setLoading(false)
-        }
+        } catch (e: any) { toast.error(e.message) } finally { setLoading(false) }
     }
 
     const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
         const file = e.target.files?.[0]
         if (!file || !user) return
-
         setUploading(true)
         try {
-            const blob = await new Promise<Blob>((resolve, reject) => {
-                const reader = new FileReader()
-                reader.onload = (ev) => {
-                    const img = new window.Image()
-                    img.onload = () => {
-                        const SIZE = 200
-                        const canvas = document.createElement('canvas')
-                        canvas.width = SIZE
-                        canvas.height = SIZE
-                        const ctx = canvas.getContext('2d')!
-                        const min = Math.min(img.width, img.height)
-                        const sx = (img.width - min) / 2
-                        const sy = (img.height - min) / 2
-                        ctx.drawImage(img, sx, sy, min, min, 0, 0, SIZE, SIZE)
-                        canvas.toBlob((b) => b ? resolve(b) : reject(new Error('Compression failed')), 'image/jpeg', 0.80)
-                    }
-                    img.onerror = reject
-                    img.src = ev.target?.result as string
-                }
-                reader.onerror = reject
-                reader.readAsDataURL(file)
-            })
-
-            let finalUrl: string
+            const formData = new FormData()
+            formData.append('file', file)
             const filePath = `${user.id}/avatar.jpg`
-            const { error: uploadError } = await supabase.storage
-                .from('avatars')
-                .upload(filePath, blob, { upsert: true, contentType: 'image/jpeg' })
-
-            if (!uploadError) {
-                const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
-                finalUrl = `${publicUrl}?t=${Date.now()}`
-            } else {
-                finalUrl = await new Promise<string>((resolve) => {
-                    const reader = new FileReader()
-                    reader.onload = (ev) => resolve(ev.target?.result as string)
-                    reader.readAsDataURL(blob)
-                })
-            }
-
-            const { error: profileErr } = await supabase.from('profiles')
-                .update({ avatar_url: finalUrl })
-                .eq('id', user.id)
-
-            if (profileErr) throw profileErr
-
+            const { error: uploadError } = await supabase.storage.from('avatars').upload(filePath, file, { upsert: true })
+            if (uploadError) throw uploadError
+            const { data: { publicUrl } } = supabase.storage.from('avatars').getPublicUrl(filePath)
+            const finalUrl = `${publicUrl}?t=${Date.now()}`
+            await supabase.from('profiles').update({ avatar_url: finalUrl }).eq('id', user.id)
             setNewAvatar(finalUrl)
             toast.success('Photo saved! 📸')
-        } catch (error: any) {
-            console.error('Photo upload error:', error)
-            toast.error(error.message || 'Could not upload photo.')
-        } finally {
-            setUploading(false)
-        }
+        } catch (error: any) { toast.error(error.message) } finally { setUploading(false) }
     }
-
-    const formatDateInput = (value: string) => {
-        const cleaned = value.replace(/\D/g, '').slice(0, 8)
-        let formatted = cleaned
-        if (cleaned.length > 2 && cleaned.length <= 4) {
-            formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2)}`
-        } else if (cleaned.length > 4) {
-            formatted = `${cleaned.slice(0, 2)}/${cleaned.slice(2, 4)}/${cleaned.slice(4)}`
-        }
-        return formatted
-    }
-
-    const formatPhoneInput = (value: string) => {
-        const cleaned = value.replace(/\D/g, '').slice(0, 10)
-        let formatted = cleaned
-        if (cleaned.length > 3 && cleaned.length <= 6) {
-            formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3)}`
-        } else if (cleaned.length > 6) {
-            formatted = `${cleaned.slice(0, 3)}-${cleaned.slice(3, 6)}-${cleaned.slice(6)}`
-        }
-        return formatted
-    }
-
-    useEffect(() => {
-        if (!loaded || !user) return
-
-        document.documentElement.setAttribute('data-theme', theme)
-        localStorage.setItem('app-theme', theme)
-
-        const syncThemeAndTemplate = async () => {
-            const { error } = await supabase.from('profiles')
-                .update({ theme, wrap_template: selectedTemplate })
-                .eq('id', user.id)
-            if (error) console.error('Failed to sync profile preferences:', error)
-        }
-        syncThemeAndTemplate()
-    }, [theme, selectedTemplate, loaded, user?.id])
 
     const THEMES = [
         { id: 'blue', color: '#007AFF', name: 'Original' },
@@ -263,409 +156,236 @@ export default function SettingsPage() {
     ]
 
     const WRAP_TEMPLATES: { id: WrapTemplate, name: string, icon: any, color: string, desc: string }[] = [
-        { id: 'obsidian', name: 'Obsidian', icon: Sparkles, color: '#007AFF', desc: 'Premium Glass' },
-        { id: 'cyber', name: 'Cyberpunk', icon: Zap, color: '#f0abfc', desc: 'Neon Edge' },
-        { id: 'luxe', name: 'Luxe Gold', icon: Crown, color: '#fbbf24', desc: 'Old Money' },
-        { id: 'thermal', name: 'Minimalist', icon: ReceiptText, color: '#000000', desc: 'Clean Thermal' },
-        { id: 'sunset', name: 'Vaporwave', icon: Palmtree, color: '#fb7185', desc: 'Retro Vibe' },
+        { id: 'obsidian', name: 'Obsidian', icon: Sparkles, color: '#007AFF', desc: 'Space Age Glass' },
+        { id: 'cyber', name: 'Cyberpunk', icon: Zap, color: '#f0abfc', desc: 'Neon Holographics' },
+        { id: 'luxe', name: 'Luxe Gold', icon: Crown, color: '#fbbf24', desc: 'Old Money Satin' },
+        { id: 'thermal', name: 'Minimalist', icon: ReceiptText, color: '#000000', desc: 'Classic Dot Matrix' },
+        { id: 'sunset', name: 'Vaporwave', icon: Palmtree, color: '#fb7185', desc: 'Nostalgic Pulse' },
     ]
 
-    const exampleShiftData = {
-        totalEarned: 342,
-        tipsPerHour: 48,
-        netSales: 1650,
-        hours: 6.5,
-        ccTips: 285,
-        cashTips: 45,
-        tipOut: 82.50,
-        basePay: 94.25,
-        grade: 'A+',
-        gradeColor: '#10B981',
-        date: new Date(),
-        shiftType: 'Dinner',
-    }
+    useEffect(() => {
+        if (!loaded || !user) return
+        document.documentElement.setAttribute('data-theme', theme)
+        localStorage.setItem('app-theme', theme)
+        const syncPref = async () => {
+            const { error } = await supabase.from('profiles').update({ theme, wrap_template: selectedTemplate }).eq('id', user.id)
+            if (error) console.error('Pref sync fail:', error)
+        }
+        syncPref()
+    }, [theme, selectedTemplate, loaded, user?.id])
 
     return (
-        <div className="p-6 pt-safe space-y-8 animate-in pb-32 bg-black min-h-screen">
+        <div className="p-6 pt-safe space-y-8 animate-in pb-32 bg-black min-h-screen no-scrollbar">
             <header className="space-y-1 mt-6">
                 <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Identity & OS</p>
                 <h1 className="text-4xl font-black font-outfit text-white tracking-tighter">Settings.</h1>
             </header>
 
-            {/* Profile Header */}
-            <section className="space-y-4">
-                <Card className="flex items-center gap-6 !p-8 bg-zinc-900/40 border-white/5 rounded-[2.5rem] shadow-2xl relative overflow-hidden group">
-                    <div className="absolute -right-4 -top-4 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-700">
-                        <UserCircle className="w-48 h-48 text-primary" />
+            {/* Profile Section (Most Important) */}
+            <section className="space-y-5">
+                <Card className="flex items-center gap-6 !p-8 bg-zinc-900/40 border-white/5 rounded-[3rem] shadow-2xl relative overflow-hidden group">
+                    <div className="absolute -right-8 -top-8 opacity-5 pointer-events-none group-hover:scale-110 transition-transform duration-1000">
+                        <UserCircle className="w-64 h-64 text-primary" />
                     </div>
 
                     <div className="relative">
-                        <div className="w-20 h-20 rounded-[2rem] bg-black ring-4 ring-primary/10 overflow-hidden shrink-0 shadow-2xl">
-                            <img
-                                src={newAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                                alt="Avatar"
-                                className="w-full h-full object-cover"
-                                onError={(e) => {
-                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`
-                                }}
-                            />
+                        <div className="w-24 h-24 rounded-[2.5rem] bg-black ring-4 ring-primary/10 overflow-hidden shrink-0 shadow-2xl">
+                            <img src={newAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`} className="w-full h-full object-cover" />
                         </div>
-                        <button
-                            onClick={() => setShowEdit(true)}
-                            className="absolute -right-1 -bottom-1 w-8 h-8 rounded-xl bg-primary text-white flex items-center justify-center shadow-lg transform hover:scale-110 transition-transform"
-                        >
-                            <Camera className="w-4 h-4" />
+                        <button onClick={() => setShowEdit(true)} className="absolute -right-2 -bottom-2 w-10 h-10 rounded-2xl bg-primary text-white flex items-center justify-center shadow-xl transform active:scale-90 transition-transform">
+                            <Camera className="w-5 h-5" />
                         </button>
                     </div>
 
-                    <div className="space-y-1.5 relative z-10 flex-1">
-                        <h3 className="text-2xl font-black font-outfit text-white tracking-tighter">{newName || user?.user_metadata?.full_name || 'Server'}</h3>
-                        <p className="text-[10px] text-zinc-500 font-black uppercase tracking-widest">{user?.email}</p>
-                        <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black tracking-widest px-3 py-1 mt-1 inline-block">🍽️ Server</Badge>
-                        {favoriteSection && <p className="text-[8px] text-zinc-600 font-black uppercase tracking-widest mt-1">Sect: {favoriteSection}</p>}
+                    <div className="space-y-2 relative z-10 flex-1">
+                        <h3 className="text-3xl font-black font-outfit text-white tracking-tighter leading-none">{newName || 'Server'}</h3>
+                        <div className="flex flex-wrap gap-2">
+                            <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black tracking-widest px-3 py-1.5 inline-block">🍽️ SERVER</Badge>
+                            {favoriteSection && <Badge className="bg-white/5 text-zinc-500 border-none text-[8px] font-black px-3 py-1.5">{favoriteSection}</Badge>}
+                        </div>
                     </div>
                 </Card>
+
+                <div className="grid grid-cols-2 gap-4">
+                    <Button variant="secondary" onClick={() => setShowEdit(true)} className="py-6 rounded-[2rem] bg-zinc-900/40 border-white/5 text-[10px] font-black uppercase tracking-widest gap-3">
+                        <User className="w-4 h-4" /> Edit Profile
+                    </Button>
+                    <Button variant="primary" onClick={handleSignOut} className="py-6 rounded-[2rem] text-[10px] font-black uppercase tracking-widest gap-3">
+                        <LogOut className="w-4 h-4" /> Sign Out
+                    </Button>
+                </div>
             </section>
 
-            {/* Shift Wrap Customization */}
+            {/* Visuals (Brand Colors) */}
             <section className="space-y-4">
                 <div className="flex justify-between items-center px-1">
-                    <h2 className="font-black font-outfit text-lg text-white tracking-tight">Wrap Customization</h2>
-                    <Badge className="bg-primary/20 text-primary border-none text-[8px] font-black uppercase tracking-widest px-3">Free for now</Badge>
+                    <h2 className="font-black font-outfit text-xl text-white tracking-tight flex items-center gap-3">
+                        <Palette className="w-5 h-5 text-primary" /> Core Aesthetics
+                    </h2>
                 </div>
 
-                <Card className="!p-8 bg-zinc-900/40 border-white/5 rounded-[2.5rem] shadow-xl space-y-8">
-                    <div className="flex items-center justify-between">
-                        <div className="space-y-1">
-                            <p className="text-sm font-black font-outfit text-white">Visual Template</p>
-                            <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Post-shift identity style</p>
-                        </div>
-                        <Button 
-                            variant="secondary" 
-                            className="text-[9px] px-5 py-2.5 rounded-xl border-none bg-white/5 text-zinc-400 font-black uppercase flex items-center gap-2"
-                            onClick={() => setShowWrapPreview(true)}
-                        >
-                            <Eye className="w-3.5 h-3.5" />
-                            Live Preview
-                        </Button>
-                    </div>
-
-                    <div className="grid grid-cols-1 gap-3">
-                        {WRAP_TEMPLATES.map((t) => (
-                            <button
-                                key={t.id}
-                                onClick={() => setSelectedTemplate(t.id)}
-                                className={cn(
-                                    "flex items-center justify-between p-5 rounded-3xl border-2 transition-all group overflow-hidden relative",
-                                    selectedTemplate === t.id 
-                                        ? "bg-primary/10 border-primary ring-4 ring-primary/5" 
-                                        : "bg-black/20 border-white/5 hover:border-white/10"
-                                )}
-                            >
-                                <div className="flex items-center gap-5 relative z-10">
-                                    <div className={cn(
-                                        "w-12 h-12 rounded-2xl flex items-center justify-center transition-all",
-                                        selectedTemplate === t.id ? "bg-primary text-white scale-110" : "bg-zinc-900 text-zinc-600"
-                                    )}>
-                                        <t.icon className="w-6 h-6" />
-                                    </div>
-                                    <div className="text-left">
-                                        <p className={cn("text-base font-black font-outfit tracking-tight", selectedTemplate === t.id ? "text-white" : "text-zinc-500")}>{t.name}</p>
-                                        <p className="text-[9px] font-black text-zinc-600 uppercase tracking-widest">{t.desc}</p>
-                                    </div>
-                                </div>
-                                {selectedTemplate === t.id && (
-                                    <div className="w-2.5 h-2.5 bg-primary rounded-full relative z-10 ring-4 ring-primary/20" />
-                                )}
-                                
-                                {/* Background design flair based on theme */}
-                                <div className={cn(
-                                    "absolute top-0 right-0 py-6 px-10 opacity-[0.03] group-hover:opacity-[0.08] transition-opacity",
-                                    selectedTemplate === t.id && "opacity-[0.1]"
-                                )}>
-                                    <t.icon className="w-32 h-32" />
-                                </div>
-                            </button>
-                        ))}
-                    </div>
-                </Card>
-            </section>
-
-            {/* App Aesthetics */}
-            <section className="space-y-4">
-                <div className="flex justify-between items-center px-1">
-                    <h2 className="font-black font-outfit text-lg text-white tracking-tight">App Aesthetics</h2>
-                    <Badge className="bg-zinc-900 text-zinc-600 border-none">Visual Kit</Badge>
-                </div>
-
-                <Card className="!p-6 bg-zinc-900/40 border-white/5 rounded-3xl shadow-xl">
-                    <div className="space-y-4">
-                        <div className="flex items-center gap-3">
-                            <div className="w-8 h-8 rounded-lg bg-zinc-900 border border-white/5 flex items-center justify-center text-primary">
-                                <Settings className="w-4 h-4" />
+                <Card className="!p-8 bg-zinc-900/40 border-white/5 rounded-[3rem] shadow-xl space-y-8">
+                    <div className="space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <p className="text-sm font-black font-outfit text-white">Brand Highlight</p>
+                                <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Global OS accent color</p>
                             </div>
-                            <div>
-                                <p className="text-sm font-black font-outfit text-white leading-tight">Brand Color</p>
-                                <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest leading-none">Global Accent Color</p>
-                            </div>
+                            <div className="w-8 h-8 rounded-full shadow-2xl" style={{ backgroundColor: THEMES.find(t=>t.id===theme)?.color }} />
                         </div>
 
-                        <div className="grid grid-cols-6 gap-2">
+                        <div className="grid grid-cols-7 gap-2">
                             {THEMES.map((t) => (
                                 <button
                                     key={t.id}
                                     onClick={() => setTheme(t.id)}
                                     className={cn(
-                                        "w-full aspect-square rounded-xl border-2 transition-all flex items-center justify-center tap-highlight-transparent",
-                                        theme === t.id ? "border-white ring-4 ring-white/10" : "border-transparent opacity-60 hover:opacity-100"
+                                        "w-full aspect-square rounded-2xl border-2 transition-all flex items-center justify-center tap-highlight-transparent",
+                                        theme === t.id ? "border-white ring-8 ring-white/5 scale-110" : "border-transparent opacity-40 hover:opacity-100"
                                     )}
                                     style={{ backgroundColor: t.color }}
-                                >
-                                    {theme === t.id && <div className="w-2 h-2 rounded-full bg-white shadow-lg" />}
-                                </button>
+                                />
                             ))}
                         </div>
                     </div>
-                </Card>
-            </section>
 
-            {/* Personal Sections */}
-            <section className="space-y-4">
-                <div className="flex justify-between items-center px-1">
-                    <h2 className="font-black font-outfit text-lg text-white tracking-tight">Permissions & HUD</h2>
-                </div>
-
-                <Card className="p-2 bg-zinc-900/40 border-white/5 rounded-[2rem] shadow-xl overflow-hidden">
-                    <div className="space-y-1">
-                        <div
-                            className="p-5 flex items-center justify-between hover:bg-white/5 rounded-2xl transition-all cursor-pointer"
-                            onClick={async () => {
-                                if (togglingShare) return
-                                setTogglingShare(true)
-                                const next = !shareToLeaderboard
-                                try {
-                                    const { error } = await supabase
-                                        .from('profiles')
-                                        .update({ share_to_leaderboard: next })
-                                        .eq('id', user.id)
-                                    if (error) throw error
-
-                                    setShareToLeaderboard(next)
-                                    toast.success(next ? 'Your stats are now visible to your parties' : 'Your stats are now hidden from parties')
-                                } catch (e: any) {
-                                    toast.error(e.message)
-                                } finally {
-                                    setTogglingShare(false)
-                                }
-                            }}
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-secondary">
-                                    <Shield className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-black font-outfit text-white tracking-tight">Ranking Visibility</p>
-                                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">
-                                        {shareToLeaderboard ? 'Party can see your stats' : 'Your stats are hidden'}
-                                    </p>
-                                </div>
+                    {/* Condensed Wrap Customization */}
+                    <div className="pt-8 border-t border-white/5 space-y-6">
+                        <div className="flex items-center justify-between">
+                            <div className="space-y-1">
+                                <p className="text-sm font-black font-outfit text-white">Post-Shift Identity</p>
+                                <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Current: {WRAP_TEMPLATES.find(t=>t.id===selectedTemplate)?.name}</p>
                             </div>
-                            <button
-                                type="button"
-                                className={`w-12 h-7 rounded-full relative transition-colors duration-300 ${shareToLeaderboard ? 'bg-primary' : 'bg-zinc-700'}`}
+                            <Button 
+                                variant="secondary" 
+                                className="px-6 py-3 rounded-2xl font-black uppercase text-[9px] bg-primary/10 text-primary border-none flex items-center gap-3 active:scale-95"
+                                onClick={() => setShowTemplatePicker(true)}
                             >
-                                <div className={`absolute top-1 w-5 h-5 bg-white rounded-full shadow-md transition-all duration-300 ${shareToLeaderboard ? 'left-6' : 'left-1'}`} />
-                            </button>
-                        </div>
-
-                        <div 
-                            className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/5 rounded-2xl transition-all group"
-                            onClick={() => {
-                                setupNotifications()
-                                toast.promise(setupNotifications(), {
-                                    loading: 'Requesting permissions...',
-                                    success: 'Notifications enabled!',
-                                    error: 'Could not enable notifications.'
-                                })
-                            }}
-                        >
-                            <div className="flex items-center gap-4">
-                                <div className="w-10 h-10 rounded-xl bg-zinc-900 border border-white/5 flex items-center justify-center text-orange-400">
-                                    <Bell className="w-5 h-5" />
-                                </div>
-                                <div>
-                                    <p className="text-sm font-black font-outfit text-white tracking-tight">Notifications</p>
-                                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest">Shift Reminders</p>
-                                </div>
-                            </div>
-                            <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
+                                <LayoutTemplate className="w-4 h-4" /> Pick Theme
+                            </Button>
                         </div>
                     </div>
                 </Card>
             </section>
 
-            {/* Sign Out & Danger Zone */}
-            <section className="pt-2 pb-2 space-y-3">
-                <button
-                    onClick={handleSignOut}
-                    className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-white/5 border border-white/10 text-zinc-300 font-black text-sm uppercase tracking-widest hover:bg-white/10 active:scale-[0.98] transition-all"
-                >
-                    <LogOut className="w-4 h-4" />
-                    Sign Out
-                </button>
+            {/* Privacy & Engine */}
+            <section className="space-y-4">
+                <h2 className="font-black font-outfit text-xl text-white tracking-tight flex items-center gap-3 px-1">
+                    <Fingerprint className="w-5 h-5 text-secondary" /> Privacy & Hub
+                </h2>
                 
-                <button
-                    onClick={handleDeleteAccount}
-                    className="w-full flex items-center justify-center gap-3 p-5 rounded-2xl bg-red-500/10 border border-red-500/10 text-red-500 font-black text-sm uppercase tracking-widest hover:bg-red-500/20 active:scale-[0.98] transition-all"
-                >
-                    <UserMinus className="w-4 h-4" />
-                    Delete Account
+                <Card className="p-2 bg-zinc-900/40 border-white/5 rounded-[2.5rem] shadow-xl overflow-hidden">
+                    <div className="space-y-1">
+                        <div className="p-5 flex items-center justify-between hover:bg-white/5 rounded-3xl transition-all cursor-pointer" onClick={async () => {
+                            if (togglingShare) return
+                            setTogglingShare(true)
+                            const next = !shareToLeaderboard
+                            await supabase.from('profiles').update({ share_to_leaderboard: next }).eq('id', user.id)
+                            setShareToLeaderboard(next)
+                            setTogglingShare(false)
+                        }}>
+                             <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-white/10 flex items-center justify-center text-emerald-400">
+                                    <Shield className="w-6 h-6" />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-sm font-black font-outfit text-white tracking-tight">Party Ranking</p>
+                                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest leading-none">{shareToLeaderboard ? 'VISIBLE' : 'HIDDEN'}</p>
+                                </div>
+                            </div>
+                            <button className={`w-14 h-8 rounded-full relative transition-colors duration-300 shadow-inner ${shareToLeaderboard ? 'bg-primary' : 'bg-zinc-800'}`}>
+                                <div className={`absolute top-1 w-6 h-6 bg-white rounded-full shadow-2xl transition-all duration-300 ${shareToLeaderboard ? 'left-7' : 'left-1'}`} />
+                            </button>
+                        </div>
+
+                        <div className="p-5 flex items-center justify-between cursor-pointer hover:bg-white/5 rounded-3xl transition-all group" onClick={() => setupNotifications()}>
+                            <div className="flex items-center gap-4">
+                                <div className="w-12 h-12 rounded-2xl bg-zinc-950 border border-white/10 flex items-center justify-center text-orange-400">
+                                    <Bell className="w-6 h-6" />
+                                </div>
+                                <div className="space-y-0.5">
+                                    <p className="text-sm font-black font-outfit text-white tracking-tight">Shift Alerts</p>
+                                    <p className="text-[10px] text-zinc-600 font-black uppercase tracking-widest leading-none">Smart Notifications</p>
+                                </div>
+                            </div>
+                            <div className="p-2 rounded-xl bg-white/5 group-hover:bg-primary/20 transition-colors">
+                                <ChevronRight className="w-5 h-5 text-zinc-800 group-hover:text-primary transition-colors" />
+                            </div>
+                        </div>
+                    </div>
+                </Card>
+            </section>
+
+            <section className="pt-6 space-y-4">
+                <button onClick={handleDeleteAccount} className="w-full text-center text-[10px] font-black uppercase tracking-[0.6em] text-red-950 hover:text-red-600 transition-colors">
+                    Terminate Account & Logs
                 </button>
             </section>
 
-            {/* Version footer */}
-            <footer className="pt-2 pb-2">
-                <div className="text-center opacity-40">
-                    <p className="text-[10px] text-zinc-600 uppercase font-black tracking-[0.5em]">Pool Party OS v1.1.0 - Built in Paradise</p>
-                </div>
-            </footer>
-
-            {/* Edit Modal / Photo Picker */}
+            {/* Template Picker Modal */}
             <AnimatePresence>
-                {showEdit && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center p-6 bg-black/80 backdrop-blur-xl"
-                    >
-                        <motion.div
-                            initial={{ scale: 0.9, y: 20 }}
-                            animate={{ scale: 1, y: 0 }}
-                            exit={{ scale: 0.9, y: 20 }}
-                            className="w-full max-w-sm max-h-[90vh] overflow-y-auto no-scrollbar"
-                        >
-                            <Card className="!p-10 shadow-3xl bg-zinc-900/90 border-white/10 rounded-[3rem] space-y-8 mb-20">
-                                <div className="flex justify-between items-center">
-                                    <div className="space-y-1">
-                                        <h3 className="text-2xl font-black font-outfit text-white tracking-tighter">Edit Identity.</h3>
-                                        <p className="text-[10px] font-black uppercase tracking-widest text-zinc-500">Profiles update in real-time</p>
-                                    </div>
-                                    <button
-                                        onClick={() => setShowEdit(false)}
-                                        className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center text-zinc-500 hover:text-white transition-colors"
-                                    >
-                                        <ChevronRight className="w-4 h-4 rotate-90" />
-                                    </button>
-                                </div>
+                {showTemplatePicker && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="fixed inset-0 z-[100] flex items-end justify-center bg-black/90 backdrop-blur-3xl pb-safe">
+                        <motion.div initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", damping: 25, stiffness: 200 }} className="w-full max-w-lg bg-zinc-900 rounded-t-[4rem] p-8 space-y-8 overflow-hidden relative shadow-[0_-40px_100px_rgba(0,0,0,0.8)]">
+                            <div className="w-20 h-2 bg-white/10 rounded-full mx-auto" onClick={()=>setShowTemplatePicker(false)} />
+                            <div className="space-y-2 text-center">
+                                <h3 className="text-3xl font-black font-outfit text-white tracking-tighter">Wrap Style.</h3>
+                                <p className="text-[10px] font-black uppercase tracking-[0.4em] text-primary">Identity selection</p>
+                            </div>
 
-                                <div className="flex flex-col items-center gap-4">
-                                    <div className="relative group overflow-hidden rounded-[2.5rem] shadow-2xl">
-                                        <div className="w-32 h-32 bg-black ring-4 ring-primary/10 transition-all group-hover:scale-105 duration-500">
-                                            <img
-                                                src={newAvatar || `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`}
-                                                alt="Preview"
-                                                className="w-full h-full object-cover"
-                                                onError={(e) => {
-                                                    (e.target as HTMLImageElement).src = `https://api.dicebear.com/7.x/avataaars/svg?seed=${user?.id}`
-                                                }}
-                                            />
-                                        </div>
-                                        {uploading && (
-                                            <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
-                                                <RefreshCw className="w-8 h-8 text-primary animate-spin" />
-                                            </div>
+                            <div className="space-y-4 max-h-[50vh] overflow-y-auto no-scrollbar pb-8 pr-1">
+                                {WRAP_TEMPLATES.map((t) => (
+                                    <button 
+                                        key={t.id} 
+                                        onClick={() => {
+                                            setSelectedTemplate(t.id)
+                                            setShowTemplatePicker(false)
+                                            setShowWrapPreview(true)
+                                        }}
+                                        className={cn(
+                                            "w-full flex items-center justify-between p-7 rounded-[2.5rem] border-2 transition-all relative overflow-hidden group active:scale-95",
+                                            selectedTemplate === t.id ? "bg-primary border-primary shadow-2xl shadow-primary/20" : "bg-black/30 border-white/5"
                                         )}
-                                    </div>
-                                    <div className="flex gap-2 flex-wrap justify-center">
-                                        <Button
-                                            variant="secondary"
-                                            type="button"
-                                            className="text-[10px] px-4 py-2 rounded-xl bg-zinc-800 text-zinc-400 border-none flex items-center gap-2 font-black uppercase"
-                                            onClick={() => fileInputRef.current?.click()}
-                                        >
-                                            <ImageIcon className="w-3 h-3" />
-                                            Upload Photo
-                                        </Button>
-                                    </div>
-                                    <input
-                                        type="file"
-                                        ref={fileInputRef}
-                                        className="hidden"
-                                        accept="image/*"
-                                        onChange={handlePhotoUpload}
-                                    />
-                                </div>
+                                    >
+                                        <div className="flex items-center gap-6 relative z-10">
+                                            <div className={cn("w-14 h-14 rounded-3xl flex items-center justify-center transition-all", selectedTemplate === t.id ? "bg-white text-primary" : "bg-zinc-900 text-zinc-600")}>
+                                                <t.icon className="w-7 h-7" />
+                                            </div>
+                                            <div className="text-left">
+                                                <p className={cn("text-xl font-black font-outfit tracking-tight", selectedTemplate === t.id ? "text-white" : "text-zinc-400")}>{t.name}</p>
+                                                <p className={cn("text-[9px] font-black uppercase tracking-widest", selectedTemplate === t.id ? "text-white/60" : "text-zinc-700")}>{t.desc}</p>
+                                            </div>
+                                        </div>
+                                        <div className="absolute right-0 top-0 opacity-10 group-hover:scale-110 transition-transform">
+                                            <t.icon className="w-32 h-32 rotate-12" />
+                                        </div>
+                                    </button>
+                                ))}
+                            </div>
 
-                                <form onSubmit={handleUpdateProfile} className="space-y-6">
-                                    <Input
-                                        label="Full Display Name"
-                                        value={newName}
-                                        onChange={(e) => setNewName(e.target.value)}
-                                        placeholder="Aaron Stephens"
-                                        className="bg-black text-lg py-5"
-                                    />
-
-                                    <div className="grid grid-cols-2 gap-4">
-                                        <Input
-                                            label="Birthday"
-                                            value={birthday}
-                                            onChange={(e) => setBirthday(formatDateInput(e.target.value))}
-                                            placeholder="MM/DD/YYYY"
-                                            className="bg-black text-xs"
-                                        />
-                                        <Input
-                                            label="Serving Since"
-                                            value={workAnniversary}
-                                            onChange={(e) => setWorkAnniversary(formatDateInput(e.target.value))}
-                                            placeholder="MM/DD/YYYY"
-                                            className="bg-black text-xs"
-                                        />
-                                    </div>
-
-                                    <div className="grid grid-cols-1 gap-4">
-                                        <Input
-                                            label="Phone Number"
-                                            value={phone}
-                                            onChange={(e) => setPhone(formatPhoneInput(e.target.value))}
-                                            placeholder="555-555-5555"
-                                            className="bg-black text-xs"
-                                        />
-                                    </div>
-
-                                    <div className="space-y-1.5">
-                                        <label className="text-[10px] font-black uppercase tracking-widest text-zinc-500 ml-1">Short Bio</label>
-                                        <textarea
-                                            value={bio}
-                                            onChange={(e) => setBio(e.target.value)}
-                                            placeholder="Brief description of your service style..."
-                                            rows={3}
-                                            className="w-full bg-black border border-white/10 rounded-2xl p-4 text-white font-black font-outfit text-base placeholder:text-zinc-600 focus:border-primary focus:ring-4 focus:ring-primary/5 outline-none transition-all resize-none"
-                                        />
-                                    </div>
-
-                                    <div className="pt-2">
-                                        <Button type="submit" className="w-full py-6 text-xl rounded-[2rem] shadow-2xl shadow-primary/20" disabled={loading || uploading}>
-                                            {loading ? "Updating..." : "Save Identity"}
-                                        </Button>
-                                    </div>
-                                </form>
-                            </Card>
+                            <Button onClick={() => setShowTemplatePicker(false)} className="w-full py-7 rounded-[2.5rem] bg-white text-black font-black uppercase text-xs tracking-widest">
+                                Close Selection
+                            </Button>
                         </motion.div>
                     </motion.div>
                 )}
             </AnimatePresence>
 
-            {/* Shift Wrap Preview Modal */}
+            {/* Preview Modal */}
             <AnimatePresence>
                 {showWrapPreview && (
                     <ShiftWrap 
-                        data={exampleShiftData} 
+                        data={{ totalEarned: 342, tipsPerHour: 48, netSales: 1650, hours: 6.5, ccTips: 285, cashTips: 45, tipOut: 82.50, basePay: 94.25, grade: 'A+', gradeColor: '#10B981', date: new Date(), shiftType: 'Dinner' }} 
                         template={selectedTemplate}
                         onClose={() => setShowWrapPreview(false)} 
                     />
                 )}
             </AnimatePresence>
+
+            <style jsx>{`
+                .no-scrollbar::-webkit-scrollbar { display: none; }
+                .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+            `}</style>
         </div >
     )
 }
