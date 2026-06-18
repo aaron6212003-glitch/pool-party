@@ -4,7 +4,7 @@ import { Calculator, Users, Trophy, ChevronRight, Zap } from 'lucide-react'
 
 export default function LandingPage() {
   return (
-    <div className="flex flex-col min-h-screen">
+    <div className="flex flex-col min-h-screen pt-safe">
       {/* Header */}
       <header className="p-6 flex justify-between items-center">
         <div className="flex items-center gap-2">
